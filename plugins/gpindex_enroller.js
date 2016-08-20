@@ -175,12 +175,38 @@ function updatePrivateLink(msg, result, bot) {
         };
         _e.libs['gpindex_common'].getRecord(msg.chat.id)
         .then((ret) => {
-            if (ret) {
+            if (ret && !ret.is_public) {
                 return _e.libs['gpindex_common'].doEnrollment(updatenotify);
             } else {
                 // Not Indexed
             }
         }) // To be continued
+    } else {
+        // Not Group
+    }
+}
+
+function updateInfo(msg, result, bot) {
+    if (msg.chat.id < 0) {
+        _e.libs['gpindex_common'].getRecord(msg.chat.id)
+        .then((ret) => {
+            if (ret && !ret.is_public) {
+                return bot.getChat(msg.chat.id);
+            } else {
+                // throw Not Indexed
+            }
+        })
+        .then((ret) => {
+            var updatenotify = ret;
+            updatenotify.is_update = true;
+            return updatenotify;
+        })
+        .then((updatenotify) => {
+            _e.libs['gpindex_common'].doEnrollment(updatenotify);
+        })
+        .then((ret) => {
+            // Process Response
+        })
     } else {
         // Not Group
     }
@@ -200,6 +226,7 @@ module.exports = {
         ['callback_query', processCallbackButton],
         [/^(https:\/\/telegram.me\/joinchat\/.+)$/, processLink],
         [/^\/grouplink_update (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
-        [/^\/grouplink_update@.+ (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink]
+        [/^\/grouplink_update@.+ (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
+        [/^\/update/, updateInfo]
     ]
 }
