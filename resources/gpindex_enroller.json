@@ -1,0 +1,20 @@
+{
+    "promptChooseGroup": "This is a prompt to ask user to choose the group.",
+    "promptGroupChosen": " ''''' '''''''''' '''' '''''''' ''' ",
+    "promptSendLink": "请发送您的群组邀请链接。",
+    "buttonGroupChosenContinue": " '''' ''''''' ''' '''''''' ''''''''' ",
+    "buttonChooseGroup": "Choose a group",
+    "buttonConfirm": "确认",
+    "buttonCancel": "取消",
+    "infoBusyState": "You are busy doing something, please /cancel it first.",
+    "infoMalState": "出现了一些问题，请先重置会话。 /reset",
+    "infoSessionCleared": " '' ''''''''' '''''''''''' ''' ",
+    "infoBugReport": "发生了一些错误。您的会话已被重置，且错误已被自动报告到管理员。请等一会重试或到反馈群组反馈。",
+    "infoPubDone": "您的请求已提交。请耐心等待数据库更新。",
+    "infoPrivDone": "您的请求已提交。请等待管理员验证邀请链接有效性。",
+    "infoPrivLinkSubmitted": "您的新链接已提交审核。请耐心等待变更生效。",
+    "confirmPublicGroupInfo": "You are submitting a public group. Please double-check the info below:\nUnique ID: %n\nUsername: @&s\nTitle: %s",
+    "confirmPrivateGroupInfo": "You are submitting a private group. Please double-check the info below:\nUnique ID: %n\nTitle: %s\nInvite Link: %s",
+    "errorNotCreator": "对不起，您不是群组创建者，无法申请群组索引。",
+    "errorAlreadyExist": " ''' ''' '''''' ''''' ' '''''''''''"
+}
