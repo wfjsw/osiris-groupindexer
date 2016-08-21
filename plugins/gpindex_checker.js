@@ -1,7 +1,7 @@
 'use strict';
 
 // Hardcode part
-const VALIDATION_GROUP = -0;
+const VALIDATION_GROUP = -40470611;
 
 const util = require('util');
 var _e;
@@ -24,18 +24,36 @@ function init() {
 function processCallbackButton(msg, type, bot) {
     var operator = msg.data.split(':')[0];
     var gid = msg.data.split(':')[1];
-    switch (operator) {
-        case 'validate':
-            var is_update = session[gid].is_update;
-            delete session[gid];
-            _e.libs['gpindex_common'].doValidate(gid, is_update);
-            bot.answerCallbackQuery(msg.id, 'Validated!');
-            // send response, notify creator
-            break;
-        case 'reject':
-            delete session[gid];
-            // notify creator
+    if (session[gid]) {
+        switch (operator) {
+            case 'validate':
+                var is_update = session[gid].is_update;
+                var creator = session[gid].creator;
+                delete session[gid];
+                _e.libs['gpindex_common'].doValidate(gid, is_update);
+                bot.answerCallbackQuery(msg.id, 'Validated!');
+                bot.editMessageText('Validated!', {
+                    chat_id: msg.message.chat.id,
+                    message_id: msg.message.message_id 
+                });
+                bot.sendMessage(creator, "您的群组信息已通过验证。");
+                // send response, notify creator
+                break;
+            case 'reject':
+                var creator = session[gid].creator;
+                delete session[gid];
+                bot.answerCallbackQuery(msg.id, 'Rejected!');
+                bot.editMessageText('Rejected!', {
+                    chat_id: msg.message.chat.id,
+                    message_id: msg.message.message_id 
+                });
+                bot.sendMessage(creator, "您的群组信息未通过验证。请重试。");
+                // notify creator
+        }
+    } else {
+        bot.answerCallbackQuery(msg.id, 'Session Outdated!');
     }
+
 }
 
 module.exports = {

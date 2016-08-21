@@ -4,26 +4,25 @@ const util = require('util');
 
 var langres = require('../resources/gpindex_enroller.json');
 var session = {};
+var admin_id = -40470611;
 var _e;
 
 function errorProcess(msg, bot, err) {
     var errorlog = new Buffer(util.inspect(err));
     console.error(err);
     bot.sendMessage(msg.from.id, langres['infoBugReport']);
-    // **
-    // *bot.sendDocument(admin_id, errorlog, {
-    // *    caption: "Error Occured"
-    // *}, {
-    // *    file_name: 'errorlog.txt',
-    // *    mime_type: 'text/plain'
-    // *});
-    // **
+    bot.sendDocument(admin_id, errorlog, {
+        caption: "Error Occured"
+    }, {
+        file_name: 'errorlog.txt',
+        mime_type: 'text/plain'
+    });
     purgeState(msg, 'errrpt', bot);
 }
 
 function startEnrollment(msg, result, bot){
     // Check state
-    if (!session[msg.from.id]) {
+    if (!session[msg.from.id] && msg.chat.id > 0) {
         // Prompt user to choose group
         var cburl = url.format('https://telegram.me/%s?startgroup=%s', _e.me.username, 'grpselect');
         bot.sendMessage(msg.from.id, langres['promptChooseGroup'], {
@@ -178,22 +177,36 @@ function updatePrivateLink(msg, result, bot) {
             if (ret && !ret.is_public) {
                 return _e.libs['gpindex_common'].doEnrollment(updatenotify);
             } else {
-                // Not Indexed
+                bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
             }
+        }).then((ret) => {
+            bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
+        }).catch((e) => {
+            errorProcess(msg, bot, e);
         }) // To be continued
     } else {
-        // Not Group
+        bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
     }
 }
 
 function updateInfo(msg, result, bot) {
     if (msg.chat.id < 0) {
-        _e.libs['gpindex_common'].getRecord(msg.chat.id)
+        bot.getChatAdministrators(msg.chat.id)
+        .then((ret) => {
+            for (i in ret) {
+                if (ret[i].user.id == msg.from.id && ret[i].status == 'creator') return true;
+            }
+            return false;
+        })
+        .then((ret) => {
+            if (ret) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
+            else bot.sendMessage(gid, langres['errorNotCreator']); // reject
+        })
         .then((ret) => {
             if (ret && !ret.is_public) {
                 return bot.getChat(msg.chat.id);
             } else {
-                // throw Not Indexed
+                bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
             }
         })
         .then((ret) => {
@@ -202,13 +215,81 @@ function updateInfo(msg, result, bot) {
             return updatenotify;
         })
         .then((updatenotify) => {
-            _e.libs['gpindex_common'].doEnrollment(updatenotify);
+            return _e.libs['gpindex_common'].doEnrollment(updatenotify);
         })
         .then((ret) => {
             // Process Response
+            if (ret == 'new_public_queue') {
+                delete session[msg.from.id];
+                bot.sendMessage(msg.chat.id, langres['infoPubDone']);
+            } else if (ret == 'new_private_queue') {
+                delete session[msg.from.id];
+                bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
+            }
         })
     } else {
-        // Not Group
+        bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
+    }
+}
+
+function enrollmentOptOut(msg, result, bot) {
+    if (msg.chat.id < 0) {
+        if (session[msg.chat.id] == 'optout') {
+            bot.getChatAdministrators(msg.chat.id)
+            .then((ret) => {
+                for (i in ret) {
+                    if (ret[i].user.id == msg.from.id && ret[i].status == 'creator') return true;
+                }
+                return false;
+            })
+            .then((ret) => {
+                if (ret) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
+                else bot.sendMessage(gid, langres['errorNotCreator']); // reject
+            })
+            .then((ret) => {
+                if (ret) {
+                    return {id: msg.chat.id};
+                } else {
+                    bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
+                }
+            })
+            .then((ret) => {
+                return _e.libs['gpindex_common'].doRemoval(ret);
+            })
+            .then((ret) => {
+                // Process Response
+                bot.sendMessage(msg.chat.id, langres['infoPubDone']);
+            }).catch((e) => {
+                errorProcess(msg, bot, e);
+            })
+        } else {
+            bot.getChatAdministrators(msg.chat.id)
+            .then((ret) => {
+                for (i in ret) {
+                    if (ret[i].user.id == msg.from.id && ret[i].status == 'creator') return true;
+                }
+                return false;
+            })
+            .then((ret) => {
+                if (ret) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
+                else bot.sendMessage(gid, langres['errorNotCreator']); // reject
+            })
+            .then((ret) => {
+                if (ret) {
+                    return bot.sendMessage(msg.chat.id, langres['promptCancelConfirm']);
+                } else {
+                    bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
+                }
+            })
+            .then((ret) => {
+                session[msg.chat.id] = 'optout';
+            })
+            .catch((e) => {
+                errorProcess(msg, bot, e);
+            })
+        }
+    } else {
+        bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
     }
 }
 
@@ -227,6 +308,7 @@ module.exports = {
         [/^(https:\/\/telegram.me\/joinchat\/.+)$/, processLink],
         [/^\/grouplink_update (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
         [/^\/grouplink_update@.+ (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
-        [/^\/update/, updateInfo]
+        [/^\/update/, updateInfo],
+        [/^\/remove/, enrollmentOptOut]
     ]
 }
