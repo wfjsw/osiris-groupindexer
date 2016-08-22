@@ -22,6 +22,18 @@ function removeItem(msg, result, bot) {
 
 function markInvaild(msg, result, bot) {
     // TODO
+    _e.libs['gpindex_common'].getRecord(result[1])
+    .then((ret) => {
+        if (ret) {
+            return bot.sendMessage(ret.creator, '您的群组 ' + ret.title + ' 链接已过期，请及时更新。');
+        } else {
+            bot.sendMessage(msg.from.id, 'Not Found');
+        }
+    }).then((msg) => {
+        bot.sendMessage(msg.from.id, 'Done.');
+    }).catch((e) => {
+        bot.sendMessage(msg.chat.id, 'Failed\n\n' + require('util').inspect(e));
+    })
 }
 
 module.exports = {

@@ -175,6 +175,7 @@ function updatePrivateLink(msg, result, bot) {
         _e.libs['gpindex_common'].getRecord(msg.chat.id)
         .then((ret) => {
             if (ret && !ret.is_public) {
+                var 
                 return _e.libs['gpindex_common'].doEnrollment(updatenotify);
             } else {
                 bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
@@ -276,7 +277,7 @@ function enrollmentOptOut(msg, result, bot) {
             })
             .then((ret) => {
                 if (ret) {
-                    return bot.sendMessage(msg.chat.id, langres['promptCancelConfirm']);
+                    return bot.sendMessage(msg.chat.id, langres['promptRemoveConfirm']);
                 } else {
                     bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
                 }
