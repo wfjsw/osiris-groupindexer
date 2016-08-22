@@ -3,7 +3,7 @@
 const util = require('util');
 const langres = require('../resources/gpindex_publisher.json');
 
-const channel_id = 0;
+const channel_id = '@zh_groups';
 
 var _e;
 
@@ -29,6 +29,10 @@ function initevents() {
     });
     context.on('update_private_data', (groupinfo) => {
         // Private Group Updated
+        var text = util.format(langres['newPrivate'], groupinfo.title, groupinfo.invite_link);
+        bot.sendMessage(channel_id, text, {
+            reply_markup: [[{text: langres['buttonJoin'], url: groupinfo.invite_link}]]
+        });
     });
 }
 
