@@ -1,7 +1,7 @@
 {
-    "newPublic": "新的公共群组\n\n群标题：%s\n群组身份： @%s",
+    "newPublic": "新的公共群组\n\n群标题： %s\n群组身份： @%s\n\n维护用唯一ID：%s",
     "updatePublic": "公共群组数据更新",
-    "newPrivate": "新的群组\n\n群标题：%s\n群组邀请链接： %s",
-    "updatePrivate": "群组数据更新\n\n群标题：%s\n群组邀请链接： %s",
+    "newPrivate": "新的群组\n\n群标题： %s\n群组邀请链接： %s\n\n维护用唯一ID：%s",
+    "updatePrivate": "群组数据更新\n\n群标题： %s\n群组邀请链接： %s\n\n维护用唯一ID：%s",
     "buttonJoin": "加入"
 }

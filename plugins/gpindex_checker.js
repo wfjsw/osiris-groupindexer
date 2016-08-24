@@ -8,22 +8,36 @@ var _e;
 var session = {};
 
 function sendValidateRequest(groupinfo) {
-    var req = util.format('Please validate the following link: \nGroup ID: %n\nGroup Title: %s\nInvite Link: %s', groupinfo.id, groupinfo.title, groupinfo.invite_link);
+    var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s', groupinfo.id, groupinfo.title, groupinfo.invite_link);
     _e.bot.sendMessage(VALIDATION_GROUP, req, {
-        reply_markup: [[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]] // TODO
+	    reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
     }).then((msg) => {
         session[groupinfo.id] = groupinfo;
-    })
+    }).catch((e) => {
+	    _e.bot.sendMessage(VALIDATION_GROUP, 'Err: \n' + util.inspect(e));
+    });
 }
 
 function init() {
     var context = _e.libs['gpindex_common'];
     context.event.on('new_private_queue', sendValidateRequest);
+    context.event.on('group_removal', processOptOut);
+}
+
+function processOptOut(chatid) {
+	_e.bot.getChat(chatid)
+	.then((info) => {
+	    _e.bot.sendMessage(VALIDATION_GROUP, 'Proceed Removal\n' + util.inspect(info))
+	})
+	.catch((e) => {
+		_e.bot.sendMessage(VALIDATION_GROUP, 'Err: \n' + util.inspect(e));
+	})
 }
 
 function processCallbackButton(msg, type, bot) {
     var operator = msg.data.split(':')[0];
     var gid = msg.data.split(':')[1];
+    if (operator == 'validate' || operator == 'reject')
     if (session[gid]) {
         switch (operator) {
             case 'validate':

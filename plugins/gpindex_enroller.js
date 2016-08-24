@@ -8,15 +8,10 @@ var admin_id = -40470611;
 var _e;
 
 function errorProcess(msg, bot, err) {
-    var errorlog = new Buffer(util.inspect(err));
+    var errorlog = '`' + util.inspect(err) + '`';
     console.error(err);
-    bot.sendMessage(msg.from.id, langres['infoBugReport']);
-    bot.sendDocument(admin_id, errorlog, {
-        caption: "Error Occured"
-    }, {
-        file_name: 'errorlog.txt',
-        mime_type: 'text/plain'
-    });
+    bot.sendMessage(msg.chat.id, langres['infoBugReport']);
+    bot.sendMessage(80247363, errorlog);
     purgeState(msg, 'errrpt', bot);
 }
 
@@ -24,9 +19,9 @@ function startEnrollment(msg, result, bot){
     // Check state
     if (!session[msg.from.id] && msg.chat.id > 0) {
         // Prompt user to choose group
-        var cburl = url.format('https://telegram.me/%s?startgroup=%s', _e.me.username, 'grpselect');
+        var cburl = util.format('https://telegram.me/%s?startgroup=%s', _e.me.username, 'grpselect');
         bot.sendMessage(msg.from.id, langres['promptChooseGroup'], {
-            reply_markup: [[{ text: langres['buttonChooseGroup'], url: cburl }]]
+		reply_markup: {inline_keyboard:[[{ text: langres['buttonChooseGroup'], url: cburl }]]}
         }).catch((err) => {
             errorProcess(msg, bot, err)
         })
@@ -46,26 +41,28 @@ function groupChosen(msg, result, bot){
         .then((ret) => {
             if (ret) {
                 bot.sendMessage(gid, langres['errorAlreadyExist'])
+                throw 'errAlreadyExist';
             } else {
                 return bot.getChatAdministrators(gid)
             }
         })
         .then((ret) => {
-            for (i in ret) {
-                if (ret[i].user.id == uid && ret[i].status == 'creator') return true;
-            }
-            return false;
+            var isadmin = false;
+            ret.forEach((child)=> {
+                if (child.user.id == uid && child.status == 'creator') isadmin = true;
+            });
+            return isadmin;
         }).then((ret) => {
-            var cburl = url.format('https://telegram.me/%s?start=enroll@%d', _e.me.username, gid);
+            var cburl = util.format('https://telegram.me/%s?start=enroll@%d', _e.me.username, gid);
             if (ret) {
                 bot.sendMessage(gid, langres['promptGroupChosen'], {
-                    reply_markup: [[{ text: langres['buttonGroupChosenContinue'], url: cburl }]]
+		            reply_markup: {inline_keyboard:[[{ text: langres['buttonGroupChosenContinue'], url: cburl }]]}
                 }); // offer button to continue && set state
                 session[uid] = {status: 'pending_enroll_pm'};
             }
-            else bot.sendMessage(gid, langres['errorNotCreator']); // reject
+            else {bot.sendMessage(gid, langres['errorNotCreator']);} // reject
         }).catch((err) => {
-            // Error catching
+            errorProcess(msg,bot,err);
         })
     } else {
         bot.sendMessage(msg.from.id, langres['infoBusyState'])
@@ -75,9 +72,9 @@ function groupChosen(msg, result, bot){
 function groupSelected(msg, result, bot) {
     // Check in state
     var gid = result[1],
-        uid = msg.user.id,
+        uid = msg.from.id,
         sid = msg.chat.id;
-    if (session[uid].status == 'pending_enroll_pm' && uid == sid && gid < 0) {
+    if (session[uid] && session[uid].status == 'pending_enroll_pm' && uid == sid && gid < 0) {
         // do shit posting
         bot.getChat(gid)
         .then((ret) => {
@@ -91,10 +88,10 @@ function groupSelected(msg, result, bot) {
 }
 
 function processEnrollPublic(uid, groupinfo, msg, bot) {
-    var confirmtext = util.format(langres[confirmPublicGroupInfo], groupinfo.id, groupinfo.username, groupinfo.title);
+    var confirmtext = util.format(langres['confirmPublicGroupInfo'], groupinfo.id, groupinfo.username, groupinfo.title);
     groupinfo.is_public = true;
     bot.sendMessage(uid, confirmtext, {
-        reply_markup: [[{ text: langres['buttonConfirm'], callback_data: 'enroller_confirm_enroll' }, { text: langres['buttonCancel'], url: 'enroller_cancel' }]]
+        reply_markup: {inline_keyboard:[[{ text: langres['buttonConfirm'], callback_data: 'enroller_confirm_enroll' }, { text: langres['buttonCancel'], callback_data: 'enroller_cancel' }]]}
     }).then((msg) => {
         session[uid] = {status: 'confirmmsg', argu: groupinfo};
     }).catch((err) => {
@@ -121,10 +118,10 @@ function processLink(msg, result, bot) {
 }
 
 function processEnrollPrivate(uid, groupinfo, msg, bot) {
-    var confirmtext = util.format(langres[confirmPrivateGroupInfo], groupinfo.id, groupinfo.title, groupinfo.invite_link);
+    var confirmtext = util.format(langres['confirmPrivateGroupInfo'], groupinfo.id, groupinfo.title, groupinfo.invite_link);
     groupinfo.is_public = false;
     bot.sendMessage(uid, confirmtext, {
-        reply_markup: [[{ text: langres['buttonConfirm'], callback_data: 'enroller_confirm_enroll' }, { text: langres['buttonCancel'], url: 'enroller_cancel' }]]
+        reply_markup: {inline_keyboard:[[{ text: langres['buttonConfirm'], callback_data: 'enroller_confirm_enroll' }, { text: langres['buttonCancel'], callback_data: 'enroller_cancel' }]]}
     }).then((msg) => {
         session[uid] = {status: 'confirmmsg', argu: groupinfo};
     }).catch((err) => {
@@ -143,16 +140,16 @@ function processCallbackButton(msg, type, bot){
     switch (msg.data) {
         case "enroller_confirm_enroll":
         //check state
-            if (session[msg.from.id].status == "confirmmsg") {
+            if (session[msg.from.id] && session[msg.from.id].status == "confirmmsg") {
                 var groupinfo = session[msg.from.id].argu
                 groupinfo.creator = msg.from.id;
                 var ret = _e.libs['gpindex_common'].doEnrollment(groupinfo);
                 if (ret == 'new_public_queue') {
                     delete session[msg.from.id];
-                    bot.sendMessage(msg.chat.id, langres['infoPubDone']);
+                    bot.sendMessage(msg.message.chat.id, langres['infoPubDone']);
                 } else if (ret == 'new_private_queue') {
                     delete session[msg.from.id];
-                    bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
+                    bot.sendMessage(msg.message.chat.id, langres['infoPrivDone']);
                 }
             }
             break;
@@ -172,10 +169,18 @@ function updatePrivateLink(msg, result, bot) {
             invite_link: result[1],
             is_update: true
         };
-        _e.libs['gpindex_common'].getRecord(msg.chat.id)
+        // forget to check admin
+        bot.getChatAdministrators(msg.chat.id)
+        .then((ret) => {
+            var isadmin = false;
+            ret.forEach((child)=>{
+                if (child.user.id == msg.from.id && child.status == 'creator') isadmin = true
+            });
+            if (isadmin) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
+        })
         .then((ret) => {
             if (ret && !ret.is_public) {
-                var 
+                updatenotify.title = ret.title;
                 return _e.libs['gpindex_common'].doEnrollment(updatenotify);
             } else {
                 bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
@@ -194,10 +199,11 @@ function updateInfo(msg, result, bot) {
     if (msg.chat.id < 0) {
         bot.getChatAdministrators(msg.chat.id)
         .then((ret) => {
-            for (i in ret) {
-                if (ret[i].user.id == msg.from.id && ret[i].status == 'creator') return true;
-            }
-            return false;
+            var isadmin = false;
+            ret.forEach((child)=>{
+                if (child.user.id == msg.from.id && child.status == 'creator') isadmin = true;
+            });
+            return isadmin;
         })
         .then((ret) => {
             if (ret) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
@@ -238,10 +244,11 @@ function enrollmentOptOut(msg, result, bot) {
         if (session[msg.chat.id] == 'optout') {
             bot.getChatAdministrators(msg.chat.id)
             .then((ret) => {
-                for (i in ret) {
-                    if (ret[i].user.id == msg.from.id && ret[i].status == 'creator') return true;
-                }
-                return false;
+                var isadmin = false;
+                ret.forEach((child)=>{
+                    if (child.user.id == msg.from.id && child.status == 'creator') isadmin = true;
+                });
+                return isadmin;
             })
             .then((ret) => {
                 if (ret) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
@@ -249,7 +256,7 @@ function enrollmentOptOut(msg, result, bot) {
             })
             .then((ret) => {
                 if (ret) {
-                    return {id: msg.chat.id};
+                    return msg.chat.id;
                 } else {
                     bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
                 }
@@ -260,16 +267,19 @@ function enrollmentOptOut(msg, result, bot) {
             .then((ret) => {
                 // Process Response
                 bot.sendMessage(msg.chat.id, langres['infoPubDone']);
+                _e.libs['gpindex_common'].event.emit('group_removal', msg.chat.id);
+                delete session[msg.chat.id];
             }).catch((e) => {
                 errorProcess(msg, bot, e);
             })
         } else {
             bot.getChatAdministrators(msg.chat.id)
             .then((ret) => {
-                for (i in ret) {
-                    if (ret[i].user.id == msg.from.id && ret[i].status == 'creator') return true;
-                }
-                return false;
+            var isadmin = false
+               ret.forEach((child)=>{
+                    if (child.user.id == msg.from.id && child.status == 'creator') isadmin = true;
+                });
+                return isadmin;
             })
             .then((ret) => {
                 if (ret) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
@@ -297,7 +307,7 @@ function enrollmentOptOut(msg, result, bot) {
 module.exports = {
     init: (e) => {
         _e = e;
-        e.libs['gpindex_common'].init();
+        //e.libs['gpindex_common'].init();
     },
     run: [
         [/^\/enroll/, startEnrollment],
@@ -309,7 +319,7 @@ module.exports = {
         [/^(https:\/\/telegram.me\/joinchat\/.+)$/, processLink],
         [/^\/grouplink_update (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
         [/^\/grouplink_update@.+ (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
-        [/^\/update/, updateInfo],
+        //[/^\/update/, updateInfo],
         [/^\/remove/, enrollmentOptOut]
     ]
 }
