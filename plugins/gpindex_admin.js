@@ -27,10 +27,10 @@ function markInvaild(msg, result, bot) {
         if (ret) {
             return bot.sendMessage(ret.creator, '您的群组 ' + ret.title + ' 链接已过期，请及时更新。');
         } else {
-            bot.sendMessage(msg.from.id, 'Not Found');
+            bot.sendMessage(msg.chat.id, 'Not Found');
         }
-    }).then((msg) => {
-        bot.sendMessage(msg.from.id, 'Done.');
+    }).then((ret) => {
+        bot.sendMessage(msg.chat.id, 'Done.');
     }).catch((e) => {
         bot.sendMessage(msg.chat.id, 'Failed\n\n' + require('util').inspect(e));
     })
