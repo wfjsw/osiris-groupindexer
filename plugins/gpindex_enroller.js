@@ -283,7 +283,7 @@ function enrollmentOptOut(msg, result, bot) {
             })
             .then((ret) => {
                 if (ret) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
-                else bot.sendMessage(gid, langres['errorNotCreator']); // reject
+                else bot.sendMessage(msg.chat.id, langres['errorNotCreator']); // reject
             })
             .then((ret) => {
                 if (ret) {
