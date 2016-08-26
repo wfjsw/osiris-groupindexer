@@ -6,6 +6,7 @@ var langres = require('../resources/gpindex_enroller.json');
 var session = {};
 var admin_id = -40470611;
 var _e;
+var tags = require('../config.json')['gpindex_tags'];
 
 function errorProcess(msg, bot, err) {
     var errorlog = '`' + util.inspect(err) + '`';
@@ -78,8 +79,7 @@ function groupSelected(msg, result, bot) {
         // do shit posting
         bot.getChat(gid)
         .then((ret) => {
-            if (ret.username) processEnrollPublic(uid, ret, msg, bot); // is public group
-            else processEnrollPrivateWaitLink(uid, ret, msg, bot); // is private group
+            processEnrollWaitTag(uid, ret, msg, bot);
             session[uid] = {status: 'enrolling', argu: gid};
         })
     } else {
@@ -87,8 +87,26 @@ function groupSelected(msg, result, bot) {
     }
 }
 
+function processEnrollWaitTag(uid, ret, msg, bot) {
+    bot.sendMessage(uid, util.format(langres['promptSendTag'], util.inspect(tags)))
+    .then((msg) => {
+        session[uid] = {status: 'waitfortag', argu: groupinfo};
+    }).catch((err) => {
+        errorProcess(msg, bot, err)
+    });
+}
+
+function processEnrollWaitDescription(uid, ret, msg, bot) {
+    bot.sendMessage(uid, util.format(langres['promptSendDesc'], util.inspect(tags)))
+    .then((msg) => {
+        session[uid] = {status: 'waitfordesc', argu: groupinfo};
+    }).catch((err) => {
+        errorProcess(msg, bot, err)
+    });
+}
+
 function processEnrollPublic(uid, groupinfo, msg, bot) {
-    var confirmtext = util.format(langres['confirmPublicGroupInfo'], groupinfo.id, groupinfo.username, groupinfo.title);
+    var confirmtext = util.format(langres['confirmPublicGroupInfo'], groupinfo.id, groupinfo.username, groupinfo.title, groupinfo.tag, groupinfo.desc);
     groupinfo.is_public = true;
     bot.sendMessage(uid, confirmtext, {
         reply_markup: {inline_keyboard:[[{ text: langres['buttonConfirm'], callback_data: 'enroller_confirm_enroll' }, { text: langres['buttonCancel'], callback_data: 'enroller_cancel' }]]}
@@ -118,7 +136,7 @@ function processLink(msg, result, bot) {
 }
 
 function processEnrollPrivate(uid, groupinfo, msg, bot) {
-    var confirmtext = util.format(langres['confirmPrivateGroupInfo'], groupinfo.id, groupinfo.title, groupinfo.invite_link);
+    var confirmtext = util.format(langres['confirmPrivateGroupInfo'], groupinfo.id, groupinfo.title, groupinfo.invite_link, groupinfo.tag, groupinfo.desc);
     groupinfo.is_public = false;
     bot.sendMessage(uid, confirmtext, {
         reply_markup: {inline_keyboard:[[{ text: langres['buttonConfirm'], callback_data: 'enroller_confirm_enroll' }, { text: langres['buttonCancel'], callback_data: 'enroller_cancel' }]]}
@@ -210,15 +228,18 @@ function updateInfo(msg, result, bot) {
             else bot.sendMessage(gid, langres['errorNotCreator']); // reject
         })
         .then((ret) => {
-            if (ret && !ret.is_public) {
+            if (ret) {
                 return bot.getChat(msg.chat.id);
             } else {
                 bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
             }
         })
         .then((ret) => {
-            var updatenotify = ret;
-            updatenotify.is_update = true;
+            var updatenotify = {
+                id: ret.id,
+                title: ret.title,
+                is_update: true    
+            };
             return updatenotify;
         })
         .then((updatenotify) => {
@@ -304,6 +325,33 @@ function enrollmentOptOut(msg, result, bot) {
     }
 }
 
+function processText(msg, type, bot) {
+    var input = msg.text;
+    try {
+        if (session[msg.from.id])
+            if (session[msg.from.id].status == 'waitfortag' && tags.indexOf(input) > -1) {
+                var newinfo = session[msg.from.id].argu;
+                newinfo['tag'] = input;
+                processEnrollWaitDescription(msg.from.id, newinfo, msg, bot);
+            } else if (session[msg.from.id].status == 'waitfordesc') {
+                var newinfo = session[msg.from.id].argu;
+                newinfo['desc'] = input;
+                if (newinfo.username) processEnrollPublic(msg.from.id, newinfo, msg, bot); // is public group
+                        else processEnrollPrivateWaitLink(msg.from.id, newinfo, msg, bot); // is private group
+            }
+    } catch(e) {
+        errorProcess(msg, bot, e);
+    }
+}
+
+function updateTag(msg, result, bot) {
+
+}
+
+function updateDesc(msg, result, bot) {
+    
+}
+
 module.exports = {
     init: (e) => {
         _e = e;
@@ -319,7 +367,10 @@ module.exports = {
         [/^(https:\/\/telegram.me\/joinchat\/.+)$/, processLink],
         [/^\/grouplink_update (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
         [/^\/grouplink_update@.+ (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
-        //[/^\/update/, updateInfo],
-        [/^\/remove/, enrollmentOptOut]
+        [/^\/update/, updateInfo],
+        [/^\/tag_update (.+)$/, updateTag],
+        //[/^\/tag_update@.+ (.+)$/, updateTag]
+        [/^\/remove/, enrollmentOptOut],
+        ['text', processText]
     ]
 }

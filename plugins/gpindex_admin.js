@@ -11,7 +11,7 @@ function addCategory(msg, result, bot) {
 }
 
 function removeItem(msg, result, bot) {
-    _e.libs['gpindex_common'].doRemoval(result[1])
+    _e.libs['gpindex_common'].doRemoval(parseInt(result[1]))
     .then((ret) => {
         bot.sendMessage(msg.chat.id, 'Success');
     })
@@ -22,12 +22,13 @@ function removeItem(msg, result, bot) {
 
 function markInvaild(msg, result, bot) {
     // TODO
-    _e.libs['gpindex_common'].getRecord(result[1])
+    _e.libs['gpindex_common'].getRecord(parseInt(result[1]))
     .then((ret) => {
         if (ret) {
             return bot.sendMessage(ret.creator, '您的群组 ' + ret.title + ' 链接已过期，请及时更新。');
         } else {
             bot.sendMessage(msg.chat.id, 'Not Found');
+            throw ret;
         }
     }).then((ret) => {
         bot.sendMessage(msg.chat.id, 'Done.');
