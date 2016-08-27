@@ -8,14 +8,29 @@ var _e;
 var session = {};
 
 function sendValidateRequest(groupinfo) {
-    var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s', groupinfo.id, groupinfo.title, groupinfo.invite_link);
-    _e.bot.sendMessage(VALIDATION_GROUP, req, {
-	    reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
-    }).then((msg) => {
-        session[groupinfo.id] = groupinfo;
-    }).catch((e) => {
-	    _e.bot.sendMessage(VALIDATION_GROUP, 'Err: \n' + util.inspect(e));
-    });
+    if (!groupinfo.is_update) {
+        var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s', groupinfo.id, groupinfo.title, groupinfo.invite_link);
+        _e.bot.sendMessage(VALIDATION_GROUP, req, {
+            reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
+        }).then((msg) => {
+            session[groupinfo.id] = groupinfo;
+        }).catch((e) => {
+            _e.bot.sendMessage(VALIDATION_GROUP, 'Err: \n' + util.inspect(e));
+        });
+    } else {
+        _e.libs['gpindex_common'].getRecord(groupinfo.id)
+        .then((ret) => {
+            var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s', ret.id, ret.title, ret.invite_link);
+            _e.bot.sendMessage(VALIDATION_GROUP, req, {
+                reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
+            })
+        })
+        .then((msg) => {
+            session[groupinfo.id] = groupinfo;
+        }).catch((e) => {
+            _e.bot.sendMessage(VALIDATION_GROUP, 'Err: \n' + util.inspect(e));
+        });
+    }
 }
 
 function init() {
@@ -50,10 +65,12 @@ function processCallbackButton(msg, type, bot) {
                     chat_id: msg.message.chat.id,
                     message_id: msg.message.message_id 
                 });
-                bot.sendMessage(creator, "您的群组信息已通过验证。");
+                if (is_update) bot.sendMessage(gid, "您的群组信息已通过验证。")
+                else bot.sendMessage(creator, "您的群组信息已通过验证。");
                 // send response, notify creator
                 break;
             case 'reject':
+                var is_update = session[gid].is_update;
                 var creator = session[gid].creator;
                 delete session[gid];
                 bot.answerCallbackQuery(msg.id, 'Rejected!');
@@ -61,13 +78,13 @@ function processCallbackButton(msg, type, bot) {
                     chat_id: msg.message.chat.id,
                     message_id: msg.message.message_id 
                 });
-                bot.sendMessage(creator, "您的群组信息未通过验证。请重试。");
+                if (is_update) bot.sendMessage(gid, "您的群组信息未通过验证。请重试。");
+                else bot.sendMessage(creator, "您的群组信息未通过验证。请重试。");
                 // notify creator
         }
     } else {
         bot.answerCallbackQuery(msg.id, 'Session Outdated!');
     }
-
 }
 
 module.exports = {

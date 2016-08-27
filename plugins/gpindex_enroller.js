@@ -42,7 +42,7 @@ function groupChosen(msg, result, bot){
         _e.libs['gpindex_common'].getRecord(gid)
         .then((ret) => {
             if (ret) {
-                bot.sendMessage(gid, langres['errorAlreadyExist'])
+                
                 throw 'errAlreadyExist';
             } else {
                 return bot.getChatAdministrators(gid)
@@ -64,7 +64,8 @@ function groupChosen(msg, result, bot){
             }
             else {bot.sendMessage(gid, langres['errorNotCreator']);} // reject
         }).catch((err) => {
-            errorProcess(msg,bot,err);
+            if (e == 'errorAlreadyExist') bot.sendMessage(gid, langres['errorAlreadyExist']);
+            else errorProcess(msg,bot,err);
         })
     } else {
         bot.sendMessage(msg.from.id, langres['infoBusyState'])
@@ -215,6 +216,7 @@ function updatePrivateLink(msg, result, bot) {
 }
 
 function updateInfo(msg, result, bot) {
+    var gid = msg.chat.id;
     if (msg.chat.id < 0) {
         bot.getChatAdministrators(msg.chat.id)
         .then((ret) => {
@@ -226,14 +228,11 @@ function updateInfo(msg, result, bot) {
         })
         .then((ret) => {
             if (ret) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
-            else bot.sendMessage(gid, langres['errorNotCreator']); // reject
+            else throw 'errorNotCreator'; // reject
         })
         .then((ret) => {
-            if (ret) {
-                return bot.getChat(msg.chat.id);
-            } else {
-                bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
-            }
+            if (ret) return bot.getChat(msg.chat.id);
+            else throw 'errorNotIndexed';
         })
         .then((ret) => {
             var updatenotify = {
@@ -241,7 +240,12 @@ function updateInfo(msg, result, bot) {
                 title: ret.title,
                 is_update: true    
             };
-            if (ret.username) updatenotify.username = ret.username
+            if (ret.username) {
+                updatenotify.username = ret.username;
+                updatenotify.is_public = true;
+            } else {
+                updatenotify.is_public = false;
+            }
             return _e.libs['gpindex_common'].doEnrollment(updatenotify);
         })
         .then((ret) => {
@@ -253,6 +257,10 @@ function updateInfo(msg, result, bot) {
                 delete session[msg.from.id];
                 bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
             }
+        }).catch((e) => {
+            if (e == 'errorNotCreator') bot.sendMessage(gid, langres['errorNotCreator']);
+            else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
+            else errorProcess(msg, bot, e);
         })
     } else {
         bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
@@ -344,6 +352,7 @@ function processText(msg, type, bot) {
 }
 
 function updateTag(msg, result, bot) {
+    var gid = msg.chat.id;
     if (msg.chat.id < 0) {
         var tag = result[1];
         if (tags.indexOf(tag) > -1) {
@@ -357,14 +366,11 @@ function updateTag(msg, result, bot) {
             })
             .then((ret) => {
                 if (ret) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
-                else bot.sendMessage(gid, langres['errorNotCreator']); // reject
+                else throw 'errorNotCreator'; // reject
             })
             .then((ret) => {
-                if (ret) {
-                    return {id: msg.chat.id};
-                } else {
-                    bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
-                }
+                if (ret) return bot.getChat(msg.chat.id);
+                else throw 'errorNotIndexed';
             })
             .then((ret) => {
                 var updatenotify = {
@@ -372,6 +378,12 @@ function updateTag(msg, result, bot) {
                     tag: tag,
                     is_update: true    
                 };
+                if (ret.username) {
+                    updatenotify.username = ret.username;
+                    updatenotify.is_public = true;
+                } else {
+                    updatenotify.is_public = false;
+                }
                 return _e.libs['gpindex_common'].doEnrollment(updatenotify);
             })
             .then((ret) => {
@@ -383,6 +395,10 @@ function updateTag(msg, result, bot) {
                     delete session[msg.from.id];
                     bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
                 }
+            }).catch((e) => {
+                if (e == 'errorNotCreator') bot.sendMessage(gid, langres['errorNotCreator']);
+                else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
+                else errorProcess(msg, bot, e);
             })
         } else {
             bot.sendMessage(msg.chat.id, util.format(langres['errorInvaildTag'], util.inspect(tags)));
@@ -393,6 +409,7 @@ function updateTag(msg, result, bot) {
 }
 
 function updateDesc(msg, result, bot) {
+    var gid = msg.chat.id;
     if (msg.chat.id < 0) {
         var desc = result[1];
         bot.getChatAdministrators(msg.chat.id)
@@ -405,14 +422,13 @@ function updateDesc(msg, result, bot) {
         })
         .then((ret) => {
             if (ret) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
-            else bot.sendMessage(gid, langres['errorNotCreator']); // reject
+            else {
+                throw 'errorNotCreator'
+            }
         })
         .then((ret) => {
-            if (ret) {
-                return {id: msg.chat.id};
-            } else {
-                bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
-            }
+            if (ret) return bot.getChat(msg.chat.id);
+            else throw 'errorNotIndexed';
         })
         .then((ret) => {
             var updatenotify = {
@@ -420,6 +436,12 @@ function updateDesc(msg, result, bot) {
                 desc: desc,
                 is_update: true    
             };
+            if (ret.username) {
+                updatenotify.username = ret.username;
+                updatenotify.is_public = true;
+            } else {
+                updatenotify.is_public = false;
+            }
             return _e.libs['gpindex_common'].doEnrollment(updatenotify);
         })
         .then((ret) => {
@@ -431,6 +453,10 @@ function updateDesc(msg, result, bot) {
                 delete session[msg.from.id];
                 bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
             }
+        }).catch((e) => {
+            if (e == 'errorNotCreator') bot.sendMessage(gid, langres['errorNotCreator']);
+            else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
+            else errorProcess(msg, bot, e);
         })
     } else {
         bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
