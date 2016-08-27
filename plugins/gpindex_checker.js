@@ -9,7 +9,7 @@ var session = {};
 
 function sendValidateRequest(groupinfo) {
     if (!groupinfo.is_update) {
-        var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s', groupinfo.id, groupinfo.title, groupinfo.invite_link);
+        var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s\nTag: %s\nDesc: %s', groupinfo.id, groupinfo.title, groupinfo.invite_link, groupinfo.tag, groupinfo.desc);
         _e.bot.sendMessage(VALIDATION_GROUP, req, {
             reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
         }).then((msg) => {
@@ -20,7 +20,7 @@ function sendValidateRequest(groupinfo) {
     } else {
         _e.libs['gpindex_common'].getRecord(groupinfo.id)
         .then((ret) => {
-            var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s', ret.id, ret.title, ret.invite_link);
+            var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s\nTag: %s\nDesc: %s', ret.id, ret.title, ret.invite_link, ret.tag, ret.desc);
             _e.bot.sendMessage(VALIDATION_GROUP, req, {
                 reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
             })

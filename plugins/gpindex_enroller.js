@@ -9,11 +9,14 @@ var session = {};
 var _e;
 var tags = require('../config.json')['gpindex_tags'];
 
+
 function errorProcess(msg, bot, err) {
-    var errorlog = '`' + util.inspect(err) + '`';
+    var errorlog = '```\n' + util.inspect(err) + '```\n';
     console.error(err);
     bot.sendMessage(msg.chat.id, langres['infoBugReport']);
-    bot.sendMessage(80247363, errorlog);
+    bot.sendMessage(admin_id, errorlog, {
+        parse_mode: 'Markdown'
+    });
     purgeState(msg, 'errrpt', bot);
 }
 
@@ -42,7 +45,6 @@ function groupChosen(msg, result, bot){
         _e.libs['gpindex_common'].getRecord(gid)
         .then((ret) => {
             if (ret) {
-                
                 throw 'errAlreadyExist';
             } else {
                 return bot.getChatAdministrators(gid)
@@ -61,6 +63,7 @@ function groupChosen(msg, result, bot){
 		            reply_markup: {inline_keyboard:[[{ text: langres['buttonGroupChosenContinue'], url: cburl }]]}
                 }); // offer button to continue && set state
                 session[uid] = {status: 'pending_enroll_pm'};
+                _e.libs['gpindex_common'].setLock(uid);
             }
             else {bot.sendMessage(gid, langres['errorNotCreator']);} // reject
         }).catch((err) => {
@@ -99,7 +102,7 @@ function processEnrollWaitTag(uid, ret, msg, bot) {
 }
 
 function processEnrollWaitDescription(uid, ret, msg, bot) {
-    bot.sendMessage(uid, util.format(langres['promptSendDesc'], util.inspect(tags)))
+    bot.sendMessage(uid, langres['promptSendDesc'])
     .then((msg) => {
         session[uid] = {status: 'waitfordesc', argu: ret};
     }).catch((err) => {
@@ -151,7 +154,12 @@ function processEnrollPrivate(uid, groupinfo, msg, bot) {
 
 function purgeState(msg, result, bot) {
     delete session[msg.from.id];
-    bot.sendMessage(msg.chat.id, langres['infoSessionCleared']);
+    _e.libs['gpindex_common'].unsetLock(msg.from.id);
+    bot.sendMessage(msg.chat.id, langres['infoSessionCleared'], {
+        reply_markup: {
+            hide_keyboard: true
+        }
+    });
 }
 
 
@@ -166,15 +174,18 @@ function processCallbackButton(msg, type, bot){
                 var ret = _e.libs['gpindex_common'].doEnrollment(groupinfo);
                 if (ret == 'new_public_queue') {
                     delete session[msg.from.id];
+                    _e.libs['gpindex_common'].unsetLock(msg.from.id);
                     bot.sendMessage(msg.message.chat.id, langres['infoPubDone']);
                 } else if (ret == 'new_private_queue') {
                     delete session[msg.from.id];
+                    _e.libs['gpindex_common'].unsetLock(msg.from.id);
                     bot.sendMessage(msg.message.chat.id, langres['infoPrivDone']);
                 }
             }
             break;
         case "enroller_cancel":
             delete session[msg.from.id];
+            _e.libs['gpindex_common'].unsetLock(msg.from.id);
             bot.editMessageText(langres['infoSessionCleared'], {
                 chat_id: msg.message.chat.id,
                 message_id: msg.message.message_id 
@@ -216,7 +227,6 @@ function updatePrivateLink(msg, result, bot) {
 }
 
 function updateInfo(msg, result, bot) {
-    var gid = msg.chat.id;
     if (msg.chat.id < 0) {
         bot.getChatAdministrators(msg.chat.id)
         .then((ret) => {
@@ -258,7 +268,7 @@ function updateInfo(msg, result, bot) {
                 bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
             }
         }).catch((e) => {
-            if (e == 'errorNotCreator') bot.sendMessage(gid, langres['errorNotCreator']);
+            if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator']);
             else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
             else errorProcess(msg, bot, e);
         })
@@ -280,13 +290,13 @@ function enrollmentOptOut(msg, result, bot) {
             })
             .then((ret) => {
                 if (ret) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
-                else bot.sendMessage(gid, langres['errorNotCreator']); // reject
+                else throw 'errorNotCreator'; // reject
             })
             .then((ret) => {
                 if (ret) {
                     return msg.chat.id;
                 } else {
-                    bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
+                    throw 'errorNotIndexed';
                 }
             })
             .then((ret) => {
@@ -298,7 +308,9 @@ function enrollmentOptOut(msg, result, bot) {
                 _e.libs['gpindex_common'].event.emit('group_removal', msg.chat.id);
                 delete session[msg.chat.id];
             }).catch((e) => {
-                errorProcess(msg, bot, e);
+                if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator']);
+                else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
+                else errorProcess(msg, bot, e);
             })
         } else {
             bot.getChatAdministrators(msg.chat.id)
@@ -342,7 +354,6 @@ function processText(msg, type, bot) {
                 processEnrollWaitDescription(msg.from.id, newinfo, msg, bot);
             } else if (session[msg.from.id].status == 'waitfortag' && tags.indexOf(input) == -1) {
                 bot.sendMessage(msg.chat.id, util.format(langres['errorInvaildTag'], util.inspect(tags)));
-            }
             } else if (session[msg.from.id].status == 'waitfordesc') {
                 var newinfo = session[msg.from.id].argu;
                 newinfo['desc'] = input;
@@ -355,7 +366,6 @@ function processText(msg, type, bot) {
 }
 
 function updateTag(msg, result, bot) {
-    var gid = msg.chat.id;
     if (msg.chat.id < 0) {
         var tag = result[1];
         if (tags.indexOf(tag) > -1) {
@@ -399,7 +409,7 @@ function updateTag(msg, result, bot) {
                     bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
                 }
             }).catch((e) => {
-                if (e == 'errorNotCreator') bot.sendMessage(gid, langres['errorNotCreator']);
+                if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator']);
                 else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
                 else errorProcess(msg, bot, e);
             })
@@ -412,7 +422,6 @@ function updateTag(msg, result, bot) {
 }
 
 function updateDesc(msg, result, bot) {
-    var gid = msg.chat.id;
     if (msg.chat.id < 0) {
         var desc = result[1];
         bot.getChatAdministrators(msg.chat.id)
@@ -457,7 +466,7 @@ function updateDesc(msg, result, bot) {
                 bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
             }
         }).catch((e) => {
-            if (e == 'errorNotCreator') bot.sendMessage(gid, langres['errorNotCreator']);
+            if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator']);
             else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
             else errorProcess(msg, bot, e);
         })

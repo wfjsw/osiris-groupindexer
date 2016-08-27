@@ -1,6 +1,6 @@
 {
     "promptChooseGroup": "请选择您欲索引的群组。",
-    "promptGroupChosen": "身份核验完毕。请点击下方按键继续操作。",
+    "promptGroupChosen": "身份核验完毕。请点击下方按键继续操作。\n（链接单次有效）",
     "promptSendLink": "请发送您的群组邀请链接。",
     "promptRemoveConfirm": "请重复发一次 /remove 指令以确认删除操作。发送 /cancel 以撤销。",
     "promptSendTag": "请选择一个分类用于群组索引。可用的分类：%s",

@@ -3,8 +3,8 @@
 const util = require('util');
 const langres = require('../resources/gpindex_publisher.json');
 
-//const channel_id = '@zh_groups';
 const channel_id = require('../config.json')['gpindex_channel'];
+const admin_id = require('../config.json')['gpindex_admin'];
 
 var _e;
 
@@ -16,7 +16,10 @@ function initevents() {
         var text = util.format(langres['newPublic'], groupinfo.title, groupinfo.username, groupinfo.tag, groupinfo.desc, groupinfo.id);
         bot.sendMessage(channel_id, text, {
 		reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: 'https://telegram.me/' + groupinfo.username}]]}
-        });
+        }).catch((e) => {
+            console.error(e);
+            bot.sendMessage(admin_id, e);
+        })
     });
     context.on('update_public_data', (groupinfo) => {
         _e.libs['gpindex_common'].getRecord(groupinfo.id)
@@ -27,6 +30,7 @@ function initevents() {
             });
         })
         .catch((e) => {
+            bot.sendMessage(admin_id, e);
             console.error(e);
         })
     });
@@ -34,8 +38,11 @@ function initevents() {
         // New Public Group
         var text = util.format(langres['newPrivate'], groupinfo.title, groupinfo.invite_link, groupinfo.tag, groupinfo.desc, groupinfo.id);
         bot.sendMessage(channel_id, text, {
-		reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: groupinfo.invite_link}]]}
-        });
+		    reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: groupinfo.invite_link}]]}
+        }).catch((e)=>{
+            bot.sendMessage(admin_id, e);
+            console.error(e);
+        })
     });
     context.on('update_private_data', (groupinfo) => {
         // Private Group Updated
@@ -47,7 +54,8 @@ function initevents() {
             });
         })
         .catch((e) => {
-
+            bot.sendMessage(admin_id, e);
+            console.error(e);
         })
     });
 }
