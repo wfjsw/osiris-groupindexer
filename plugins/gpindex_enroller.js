@@ -241,9 +241,7 @@ function updateInfo(msg, result, bot) {
                 title: ret.title,
                 is_update: true    
             };
-            return updatenotify;
-        })
-        .then((updatenotify) => {
+            if (ret.username) updatenotify.username = ret.username
             return _e.libs['gpindex_common'].doEnrollment(updatenotify);
         })
         .then((ret) => {
@@ -346,17 +344,102 @@ function processText(msg, type, bot) {
 }
 
 function updateTag(msg, result, bot) {
-
+    if (msg.chat.id < 0) {
+        var tag = result[1];
+        if (tags.indexOf(tag) > -1) {
+            bot.getChatAdministrators(msg.chat.id)
+            .then((ret) => {
+                var isadmin = false;
+                ret.forEach((child)=>{
+                    if (child.user.id == msg.from.id && child.status == 'creator') isadmin = true;
+                });
+                return isadmin;
+            })
+            .then((ret) => {
+                if (ret) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
+                else bot.sendMessage(gid, langres['errorNotCreator']); // reject
+            })
+            .then((ret) => {
+                if (ret) {
+                    return {id: msg.chat.id};
+                } else {
+                    bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
+                }
+            })
+            .then((ret) => {
+                var updatenotify = {
+                    id: ret.id,
+                    tag: tag,
+                    is_update: true    
+                };
+                return _e.libs['gpindex_common'].doEnrollment(updatenotify);
+            })
+            .then((ret) => {
+                // Process Response
+                if (ret == 'new_public_queue') {
+                    delete session[msg.from.id];
+                    bot.sendMessage(msg.chat.id, langres['infoPubDone']);
+                } else if (ret == 'new_private_queue') {
+                    delete session[msg.from.id];
+                    bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
+                }
+            })
+        } else {
+            bot.sendMessage(msg.chat.id, util.format(langres['errorInvaildTag'], util.inspect(tags)));
+        }   
+    } else {
+        bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
+    }
 }
 
 function updateDesc(msg, result, bot) {
-    
+    if (msg.chat.id < 0) {
+        var desc = result[1];
+        bot.getChatAdministrators(msg.chat.id)
+        .then((ret) => {
+            var isadmin = false;
+            ret.forEach((child)=>{
+                if (child.user.id == msg.from.id && child.status == 'creator') isadmin = true;
+            });
+            return isadmin;
+        })
+        .then((ret) => {
+            if (ret) return _e.libs['gpindex_common'].getRecord(msg.chat.id);
+            else bot.sendMessage(gid, langres['errorNotCreator']); // reject
+        })
+        .then((ret) => {
+            if (ret) {
+                return {id: msg.chat.id};
+            } else {
+                bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
+            }
+        })
+        .then((ret) => {
+            var updatenotify = {
+                id: ret.id,
+                desc: desc,
+                is_update: true    
+            };
+            return _e.libs['gpindex_common'].doEnrollment(updatenotify);
+        })
+        .then((ret) => {
+            // Process Response
+            if (ret == 'new_public_queue') {
+                delete session[msg.from.id];
+                bot.sendMessage(msg.chat.id, langres['infoPubDone']);
+            } else if (ret == 'new_private_queue') {
+                delete session[msg.from.id];
+                bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
+            }
+        })
+    } else {
+        bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
+    }
 }
 
 module.exports = {
     init: (e) => {
         _e = e;
-        //e.libs['gpindex_common'].init();
     },
     run: [
         [/^\/enroll/, startEnrollment],
@@ -367,11 +450,9 @@ module.exports = {
         ['callback_query', processCallbackButton],
         [/^(https:\/\/telegram.me\/joinchat\/.+)$/, processLink],
         [/^\/grouplink_update (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
-        //[/^\/grouplink_update@.+ (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
         [/^\/update$/, updateInfo],
         [/^\/tag_update (.+)$/, updateTag],
-        [/^\/desc_update (.+)$/, updateDesc]
-        //[/^\/tag_update@.+ (.+)$/, updateTag],
+        [/^\/desc_update ((?:.|\n)+)/m, updateDesc],
         [/^\/remove$/, enrollmentOptOut],
         ['text', processText]
     ]
