@@ -1,7 +1,7 @@
 'use strict';
 
 const util = require('util');
-const tags = require('../config.js')['gpindex_tags']
+const tags = require('../config.json')['gpindex_tags']
 const langres = require('../resources/gpindex_listing.json');
 const admin_id = require('../config.json')['gpindex_admin'];
 
@@ -15,20 +15,20 @@ function getList(msg, result, bot) {
             markup.push([{text: child}]);
         })
         bot.sendMessage(msg.chat.id, langres['promptChooseTag'], {
-            reply_markup: markup
+            reply_markup: {keyboard: markup}
         })
     }
 }
 
 function processText(msg, result, bot) {
-    if (!getLock(msg.from.id) && msg.chat.id > 0) {
+    if (!_e.libs['gpindex_common'].getLock(msg.from.id) && msg.chat.id > 0) {
         if (tags.indexOf(msg.text) > -1) {
             _e.libs['gpindex_common'].getRecByTag(msg.text)
             .then((recs) => {
                 var out = langres['infoGroups'];
                 recs.forEach((child) => {
                     var link = 'https://telegram.me/' + _e.me.username + '?start=getdetail@' + child.id;
-                    out += util.format('[%s](%s)\n', child.title, child.link);
+                    out += util.format('[%s](%s)\n', child.title, link);
                 })
                 bot.sendMessage(msg.chat.id, out, {
                     parse_mode: 'Markdown',
@@ -41,8 +41,6 @@ function processText(msg, result, bot) {
                     });
                 })
             })
-        } else {
-            bot.sendMessage(msg.chat.id, langres['errorTagNotExist'])
         }
     }
 }
@@ -59,7 +57,7 @@ function getDetail(msg, result, bot) {
                 });
             else 
                 bot.sendMessage(msg.chat.id, util.format(langres['infoPrivGroup'], ret.id, ret.title, ret.invite_link, ret.tag, ret.desc), {
-                    reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: groupinfo.invite_link}]]}
+                    reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: ret.invite_link}]]}
                 });
         }
     }).catch((e) => {
