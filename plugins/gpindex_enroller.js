@@ -340,6 +340,9 @@ function processText(msg, type, bot) {
                 var newinfo = session[msg.from.id].argu;
                 newinfo['tag'] = input;
                 processEnrollWaitDescription(msg.from.id, newinfo, msg, bot);
+            } else if (session[msg.from.id].status == 'waitfortag' && tags.indexOf(input) == -1) {
+                bot.sendMessage(msg.chat.id, util.format(langres['errorInvaildTag'], util.inspect(tags)));
+            }
             } else if (session[msg.from.id].status == 'waitfordesc') {
                 var newinfo = session[msg.from.id].argu;
                 newinfo['desc'] = input;
