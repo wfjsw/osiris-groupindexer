@@ -91,7 +91,7 @@ function groupSelected(msg, result, bot) {
 function processEnrollWaitTag(uid, ret, msg, bot) {
     bot.sendMessage(uid, util.format(langres['promptSendTag'], util.inspect(tags)))
     .then((msg) => {
-        session[uid] = {status: 'waitfortag', argu: groupinfo};
+        session[uid] = {status: 'waitfortag', argu: ret};
     }).catch((err) => {
         errorProcess(msg, bot, err)
     });
@@ -100,7 +100,7 @@ function processEnrollWaitTag(uid, ret, msg, bot) {
 function processEnrollWaitDescription(uid, ret, msg, bot) {
     bot.sendMessage(uid, util.format(langres['promptSendDesc'], util.inspect(tags)))
     .then((msg) => {
-        session[uid] = {status: 'waitfordesc', argu: groupinfo};
+        session[uid] = {status: 'waitfordesc', argu: ret};
     }).catch((err) => {
         errorProcess(msg, bot, err)
     });
