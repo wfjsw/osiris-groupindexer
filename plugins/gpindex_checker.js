@@ -1,7 +1,7 @@
 'use strict';
 
 // Hardcode part
-const VALIDATION_GROUP = -40470611;
+const VALIDATION_GROUP = require('../config.json')['gpindex_admin'];
 
 const util = require('util');
 var _e;

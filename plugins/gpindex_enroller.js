@@ -2,9 +2,10 @@
 
 const util = require('util');
 
+const admin_id = require('../config.json')['gpindex_admin'];
+
 var langres = require('../resources/gpindex_enroller.json');
 var session = {};
-var admin_id = -40470611;
 var _e;
 var tags = require('../config.json')['gpindex_tags'];
 
@@ -366,11 +367,12 @@ module.exports = {
         ['callback_query', processCallbackButton],
         [/^(https:\/\/telegram.me\/joinchat\/.+)$/, processLink],
         [/^\/grouplink_update (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
-        [/^\/grouplink_update@.+ (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
-        [/^\/update/, updateInfo],
+        //[/^\/grouplink_update@.+ (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
+        [/^\/update$/, updateInfo],
         [/^\/tag_update (.+)$/, updateTag],
-        //[/^\/tag_update@.+ (.+)$/, updateTag]
-        [/^\/remove/, enrollmentOptOut],
+        [/^\/desc_update (.+)$/, updateDesc]
+        //[/^\/tag_update@.+ (.+)$/, updateTag],
+        [/^\/remove$/, enrollmentOptOut],
         ['text', processText]
     ]
 }

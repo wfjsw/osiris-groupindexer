@@ -3,7 +3,8 @@
 const util = require('util');
 const langres = require('../resources/gpindex_publisher.json');
 
-const channel_id = '@zh_groups';
+//const channel_id = '@zh_groups';
+const channel_id = require('../config.json')['gpindex_channel'];
 
 var _e;
 
