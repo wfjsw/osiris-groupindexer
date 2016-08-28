@@ -20,7 +20,7 @@ function sendValidateRequest(groupinfo) {
     } else {
         _e.libs['gpindex_common'].getRecord(groupinfo.id)
         .then((ret) => {
-            var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s\nTag: %s\nDesc: %s', ret.id, ret.title, ret.invite_link, ret.tag, ret.desc);
+            var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s\nTag: %s\nDesc: %s\n\nUpdation: ', ret.id, ret.title, ret.invite_link, ret.tag, ret.desc, util.inspect(groupinfo));
             _e.bot.sendMessage(VALIDATION_GROUP, req, {
                 reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
             })

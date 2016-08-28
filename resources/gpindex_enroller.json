@@ -10,7 +10,7 @@
     "buttonConfirm": "确认",
     "buttonCancel": "取消",
     "infoBusyState": "出现了一些问题，请切换到私聊使用并将当前会话处理完毕。",
-    "infoMalState": "出现了一些问题，请先重置会话。 /reset",
+    "infoMalState": "出现了一些问题，请先重置会话。 /cancel",
     "infoSessionCleared": "您的会话状态已清空。",
     "infoBugReport": "发生了一些错误。您的会话已被重置，且错误已被自动报告到管理员。请等一会重试或到反馈群组反馈。",
     "infoPubDone": "您的请求已提交。请耐心等待数据库更新。",

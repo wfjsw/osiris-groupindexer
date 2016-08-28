@@ -1,1 +1,2 @@
 npm install rethinkdb --save
+npm install he --save

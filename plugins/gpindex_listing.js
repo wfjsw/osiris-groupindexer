@@ -1,6 +1,7 @@
 'use strict';
 
 const util = require('util');
+const he = require('he');
 const tags = require('../config.json')['gpindex_tags']
 const langres = require('../resources/gpindex_listing.json');
 const admin_id = require('../config.json')['gpindex_admin'];
@@ -28,10 +29,10 @@ function processText(msg, result, bot) {
                 var out = langres['infoGroups'];
                 recs.forEach((child) => {
                     var link = 'https://telegram.me/' + _e.me.username + '?start=getdetail@' + child.id;
-                    out += util.format('[%s](%s)\n', child.title, link);
+                    out += util.format('<a href="%s">%s</a>\n', link, he.encode(child.title));
                 })
                 bot.sendMessage(msg.chat.id, out, {
-                    parse_mode: 'Markdown',
+                    parse_mode: 'HTML',
                     disable_web_page_preview: true
                 }).catch((e) => {
                     var errorlog = '```\n' + util.inspect(e) + '```\n';

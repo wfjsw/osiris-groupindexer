@@ -67,7 +67,7 @@ function groupChosen(msg, result, bot){
             }
             else {bot.sendMessage(gid, langres['errorNotCreator']);} // reject
         }).catch((err) => {
-            if (e == 'errorAlreadyExist') bot.sendMessage(gid, langres['errorAlreadyExist']);
+            if (err == 'errorAlreadyExist') bot.sendMessage(gid, langres['errorAlreadyExist']);
             else errorProcess(msg,bot,err);
         })
     } else {
