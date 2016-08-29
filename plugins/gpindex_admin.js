@@ -40,12 +40,30 @@ function markInvaild(msg, result, bot) {
         })
 }
 
+function doPublish(msg, result, bot) {
+    if (msg.chat.id == admin_id)
+        _e.libs['gpindex_common'].getRecord(result[1])
+        .then((ret) => {
+            if (ret) {
+                if (ret.is_public) _e.libs['gpindex_common'].event.emit('new_public_commit', ret);
+                else _e.libs['gpindex_common'].event.emit('new_private_commit', ret);
+            } else {
+                bot.sendMessage(msg.chat.id, 'Not Found');
+                throw ret;
+            }
+        }).then((ret) => {
+            bot.sendMessage(msg.chat.id, 'Done.');
+        }).catch((e) => {
+            bot.sendMessage(msg.chat.id, 'Failed\n\n' + require('util').inspect(e));
+        })
+}
+
 module.exports = {
     init: (e) => {
         _e = e;
     },
     run: [
-        [/^\/writemenu/, writeMenu],
+        [/^\/publish ([0-9-]{6,})$/, doPublish],
         [/^\/addcategory (.*)$/, addCategory],
         [/^\/removeitem ([0-9-]{6,})$/, removeItem],
         [/^\/markinvaild ([0-9-]{6,})$/, markInvaild]

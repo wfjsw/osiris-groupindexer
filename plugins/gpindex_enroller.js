@@ -45,7 +45,7 @@ function groupChosen(msg, result, bot){
         _e.libs['gpindex_common'].getRecord(gid)
         .then((ret) => {
             if (ret) {
-                throw 'errAlreadyExist';
+                throw 'errorAlreadyExist';
             } else {
                 return bot.getChatAdministrators(gid)
             }
