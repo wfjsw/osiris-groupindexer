@@ -75,20 +75,20 @@ function doImportPublicGroup(msg, result, bot) {
             if (ret) {
                 throw {err: 'errorAlreadyExist'};
             } else {
-                return bot.getChatAdministrators(gid)
+                return bot.getChatAdministrators(ginfo.id)
             }
         }).then((ret) => {
             ret.forEach((child)=> {
-                if (child.user.id == uid && child.status == 'creator') ginfo.creator = child.user.id;
+                if (child.status == 'creator') ginfo.creator = child.user.id;
             });
             if (ginfo.creator) {
                 ginfo.is_public = true;
                 ginfo.tag = tag;
                 ginfo.desc = desc;
-                return _e.libs['gpindex_common'].slientWrite(ginfo);
+                return _e.libs['gpindex_common'].silentWrite(ginfo);
             } else throw {err: 'cannotConfirmCreator'}; 
         }).then((ret) => {
-            bot.sendMessage(msg.chat.id, util.inspect(ret) + '\n\n' + ginfo);
+            bot.sendMessage(msg.chat.id, util.inspect(ret) + '\n\n' + util.inspect(ginfo));
         })
         .catch((e) => {
             bot.sendMessage(msg.chat.id, 'Failed\n\n' + util.inspect(e));

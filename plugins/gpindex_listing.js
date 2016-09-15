@@ -67,7 +67,8 @@ function getDetail(msg, result, bot) {
         var errorlog = '```\n' + util.inspect(e) + '```\n';
         bot.sendMessage(msg.chat.id, '发生了一些错误。');
         bot.sendMessage(admin_id, errorlog, {
-            parse_mode: 'Markdown'
+            parse_mode: 'Markdown',
+            disable_web_page_preview: true
         });
     })
 }
