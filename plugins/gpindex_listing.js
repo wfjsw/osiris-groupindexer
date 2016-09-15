@@ -56,19 +56,20 @@ function getDetail(msg, result, bot) {
         } else {
             if (ret.is_public) 
                 bot.sendMessage(msg.chat.id, util.format(langres['infoPubGroup'], ret.id, ret.title, ret.username, ret.tag, ret.desc), {
-                    reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: 'https://telegram.me/' + ret.username}]]}
+                    reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: 'https://telegram.me/' + ret.username}]]},
+                    disable_web_page_preview: true
                 });
             else 
                 bot.sendMessage(msg.chat.id, util.format(langres['infoPrivGroup'], ret.id, ret.title, ret.invite_link, ret.tag, ret.desc), {
-                    reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: ret.invite_link}]]}
+                    reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: ret.invite_link}]]},
+                    disable_web_page_preview: true
                 });
         }
     }).catch((e) => {
         var errorlog = '```\n' + util.inspect(e) + '```\n';
         bot.sendMessage(msg.chat.id, '发生了一些错误。');
         bot.sendMessage(admin_id, errorlog, {
-            parse_mode: 'Markdown',
-            disable_web_page_preview: true
+            parse_mode: 'Markdown'
         });
     })
 }
