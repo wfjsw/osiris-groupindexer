@@ -9,7 +9,7 @@
     "buttonChooseGroup": "选择一个群组",
     "buttonConfirm": "确认",
     "buttonCancel": "取消",
-    "infoBusyState": "出现了一些问题，请切换到私聊使用并将当前会话处理完毕。",
+    "infoBusyState": "出现了一些问题，请切换到私聊使用并将当前会话处理完毕或重置会话 ( /cancel )。",
     "infoMalState": "出现了一些问题，请先重置会话。 /cancel",
     "infoSessionCleared": "您的会话状态已清空。",
     "infoBugReport": "发生了一些错误。您的会话已被重置，且错误已被自动报告到管理员。请等一会重试或到反馈群组反馈。",
@@ -22,5 +22,5 @@
     "errorAlreadyExist": "对不起，数据库中已经存在该群组的信息，请使用 /update 指令更新或 /remove 指令删除。对于私有群组，请使用 `/grouplink_update + 链接` 更新群组的邀请链接。",
     "errorNotIndexed": "抱歉，您的群组尚未进入索引，请私聊使用 /enroll 指令以提交索引。",
     "errorNotInGroup": "抱歉，该指令仅能在群组中执行。",
-    "errorInvaildTag": "抱歉，该分类无效。有效分类为：%s"
+    "errorInvaildTag": "抱歉，该分类无效。有效分类为：\n%s"
 }

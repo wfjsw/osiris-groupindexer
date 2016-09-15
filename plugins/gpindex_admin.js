@@ -1,6 +1,7 @@
 'use strict';
 
 const admin_id = require('../config.json')['gpindex_admin'];
+const util = require('util');
 
 var _e;
 
@@ -19,7 +20,7 @@ function removeItem(msg, result, bot) {
             bot.sendMessage(msg.chat.id, 'Success');
         })
         .catch((e) => {
-            bot.sendMessage(msg.chat.id, 'Failed\n\n' + require('util').inspect(e));
+            bot.sendMessage(msg.chat.id, 'Failed\n\n' + util.inspect(e));
         })
 }
 
@@ -36,7 +37,7 @@ function markInvaild(msg, result, bot) {
         }).then((ret) => {
             bot.sendMessage(msg.chat.id, 'Done.');
         }).catch((e) => {
-            bot.sendMessage(msg.chat.id, 'Failed\n\n' + require('util').inspect(e));
+            bot.sendMessage(msg.chat.id, 'Failed\n\n' + util.inspect(e));
         })
 }
 
@@ -54,8 +55,45 @@ function doPublish(msg, result, bot) {
         }).then((ret) => {
             bot.sendMessage(msg.chat.id, 'Done.');
         }).catch((e) => {
-            bot.sendMessage(msg.chat.id, 'Failed\n\n' + require('util').inspect(e));
+            bot.sendMessage(msg.chat.id, 'Failed\n\n' + util.inspect(e));
         })
+}
+
+function doImportPublicGroup(msg, result, bot) {
+    var gname = result[1];
+    var tag = result[2];
+    var desc = result[3];
+    var ginfo;
+    if (msg.chat.id == admin_id)
+    if (gname && tag && desc)
+        bot.getChat(gname)
+        .then((ret) => {
+            ginfo = ret;
+            return _e.libs['gpindex_common'].getRecord(ret.id)
+        })
+        .then((ret) => {
+            if (ret) {
+                throw {err: 'errorAlreadyExist'};
+            } else {
+                return bot.getChatAdministrators(gid)
+            }
+        }).then((ret) => {
+            ret.forEach((child)=> {
+                if (child.user.id == uid && child.status == 'creator') ginfo.creator = child.user.id;
+            });
+            if (ginfo.creator) {
+                ginfo.is_public = true;
+                ginfo.tag = tag;
+                ginfo.desc = desc;
+                return _e.libs['gpindex_common'].slientWrite(ginfo);
+            } else throw {err: 'cannotConfirmCreator'}; 
+        }).then((ret) => {
+            bot.sendMessage(msg.chat.id, util.inspect(ret) + '\n\n' + ginfo);
+        })
+        .catch((e) => {
+            bot.sendMessage(msg.chat.id, 'Failed\n\n' + util.inspect(e));
+        });
+    else bot.sendMessage(msg.chat.id, 'Failed to parse Input' + util.inspect(result));
 }
 
 module.exports = {
@@ -66,6 +104,7 @@ module.exports = {
         [/^\/publish ([0-9-]{6,})$/, doPublish],
         [/^\/addcategory (.*)$/, addCategory],
         [/^\/removeitem ([0-9-]{6,})$/, removeItem],
-        [/^\/markinvaild ([0-9-]{6,})$/, markInvaild]
+        [/^\/markinvaild ([0-9-]{6,})$/, markInvaild],
+        [/^\/import_pub (@[_A-Za-z0-9]{4,}) ([^\n\s]+) ((?:.|\n)+)/m, doImportPublicGroup]
     ]
 }
