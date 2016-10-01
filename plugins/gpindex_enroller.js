@@ -200,7 +200,6 @@ function updatePrivateLink(msg, result, bot) {
             invite_link: result[1],
             is_update: true
         };
-        // forget to check admin
         bot.getChatAdministrators(msg.chat.id)
         .then((ret) => {
             var isadmin = false;
@@ -213,7 +212,12 @@ function updatePrivateLink(msg, result, bot) {
             if (ret && !ret.is_public) {
                 updatenotify.title = ret.title;
                 return _e.libs['gpindex_common'].doEnrollment(updatenotify);
-            } else {
+            } else if (ret.is_public && msg.chat.username) {
+                updatenotify.title = ret.title;
+                bot.sendMessage(msg.chat.id, langres['infoPubToPrivDone']);
+                return _e.libs['gpindex_common'].doEnrollment(updatenotify);
+            }
+             else {
                 bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
             }
         }).then((ret) => {

@@ -15,6 +15,7 @@
     "infoBugReport": "发生了一些错误。您的会话已被重置，且错误已被自动报告到管理员。请等一会重试或到反馈群组反馈。",
     "infoPubDone": "您的请求已提交。请耐心等待数据库更新。",
     "infoPrivDone": "您的请求已提交。请等待管理员验证邀请链接有效性。",
+    "infoPubToPrivDone": "截至目前，您已完成从公共群转私有群所必需的输入操作。",
     "infoPrivLinkSubmitted": "您的新链接已提交审核。请耐心等待变更生效。",
     "confirmPublicGroupInfo": "您正在提交一个公共群组。请认真检查下面的信息：\n唯一识别ID: %s\n群组身份: @%s\n群组标题: %s\n群组分类: %s\n群组简介: \n%s",
     "confirmPrivateGroupInfo": "您正在提交一个私有群组。请认真检查下面的信息：\n唯一识别ID: %s\n群组标题: %s\n邀请链接: %s\n群组分类: %s\n群组简介: \n%s",
