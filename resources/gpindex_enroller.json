@@ -3,7 +3,7 @@
     "promptGroupChosen": "身份核验完毕。请点击下方按键继续操作。\n（链接单次有效）",
     "promptSendLink": "请发送您的群组邀请链接。",
     "promptRemoveConfirm": "请重复发一次 /remove 指令以确认删除操作。发送 /cancel 以撤销。",
-    "promptSendTag": "请选择一个分类用于群组索引。可用的分类：%s",
+    "promptSendTag": "请选择一个分类用于群组索引。可用的分类：\n%s",
     "promptSendDesc": "请输入一段文字来解释群组的用途：",
     "buttonGroupChosenContinue": "继续",
     "buttonChooseGroup": "选择一个群组",

@@ -93,7 +93,9 @@ function groupSelected(msg, result, bot) {
 }
 
 function processEnrollWaitTag(uid, ret, msg, bot) {
-    bot.sendMessage(uid, util.format(langres['promptSendTag'], tags.join('\n')))
+    bot.sendMessage(uid, util.format(langres['promptSendTag'], tags.join('\n')), {
+        reply_markup: {force_reply: true}
+    })
     .then((msg) => {
         session[uid] = {status: 'waitfortag', argu: ret};
     }).catch((err) => {
@@ -102,7 +104,9 @@ function processEnrollWaitTag(uid, ret, msg, bot) {
 }
 
 function processEnrollWaitDescription(uid, ret, msg, bot) {
-    bot.sendMessage(uid, langres['promptSendDesc'])
+    bot.sendMessage(uid, langres['promptSendDesc']{
+        reply_markup: {force_reply: true}
+    })
     .then((msg) => {
         session[uid] = {status: 'waitfordesc', argu: ret};
     }).catch((err) => {
@@ -123,7 +127,9 @@ function processEnrollPublic(uid, groupinfo, msg, bot) {
 }
 
 function processEnrollPrivateWaitLink(uid, groupinfo, msg, bot) {
-    bot.sendMessage(uid, langres['promptSendLink'])
+    bot.sendMessage(uid, langres['promptSendLink']{
+        reply_markup: {force_reply: true}
+    })
     .then((msg) => {
         session[uid] = {status: 'waitforlink', argu: groupinfo};
     }).catch((err) => {
@@ -177,9 +183,7 @@ function processCallbackButton(msg, type, bot){
                     _e.libs['gpindex_common'].unsetLock(msg.from.id);
                     bot.answerCallbackQuery(msg.id, langres['infoPubDone'], true)
                     .then((ret) => {
-                        bot.editMessageReplyMarkup({
-                            inline_keyboard:[[]]
-                        }, {
+                        return bot.editMessageText(langres['infoPubDone'], {
                             chat_id: msg.message.chat.id,
                             message_id: msg.message.message_id
                         })
@@ -191,9 +195,7 @@ function processCallbackButton(msg, type, bot){
                     _e.libs['gpindex_common'].unsetLock(msg.from.id);
                     bot.answerCallbackQuery(msg.id, langres['infoPrivDone'], true)
                     .then((ret) => {
-                        bot.editMessageReplyMarkup({
-                            inline_keyboard:[[]]
-                        }, {
+                        return bot.editMessageText(langres['infoPrivDone'], {
                             chat_id: msg.message.chat.id,
                             message_id: msg.message.message_id
                         })
