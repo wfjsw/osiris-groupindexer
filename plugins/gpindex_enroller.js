@@ -212,12 +212,11 @@ function updatePrivateLink(msg, result, bot) {
             if (ret && !ret.is_public) {
                 updatenotify.title = ret.title;
                 return _e.libs['gpindex_common'].doEnrollment(updatenotify);
-            } else if (ret.is_public && msg.chat.username) {
+            } else if (ret.is_public && !msg.chat.username) {
                 updatenotify.title = ret.title;
                 bot.sendMessage(msg.chat.id, langres['infoPubToPrivDone']);
                 return _e.libs['gpindex_common'].doEnrollment(updatenotify);
-            }
-             else {
+            } else {
                 bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
             }
         }).then((ret) => {
