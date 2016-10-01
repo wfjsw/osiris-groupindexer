@@ -23,5 +23,6 @@
     "errorAlreadyExist": "对不起，数据库中已经存在该群组的信息，请使用 /update 指令更新或 /remove 指令删除。对于私有群组，请使用 `/grouplink_update + 链接` 更新群组的邀请链接。",
     "errorNotIndexed": "抱歉，您的群组尚未进入索引，请私聊使用 /enroll 指令以提交索引。",
     "errorNotInGroup": "抱歉，该指令仅能在群组中执行。",
-    "errorInvaildTag": "抱歉，该分类无效。有效分类为：\n%s"
+    "errorInvaildTag": "抱歉，该分类无效。有效分类为：\n%s",
+    "errorNoChanges": "抱歉，但您刚刚提交的更新请求中所述群组信息与数据库中信息完全相同，为防止垃圾请求影响系统的用户体验，系统已自动阻止该更新请求。"
 }

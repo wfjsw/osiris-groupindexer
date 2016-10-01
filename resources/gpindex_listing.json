@@ -5,5 +5,6 @@
     "infoPubGroup": "群ID: %s\n群标题: %s\n群组身份: @%s\n分类: #%s\n简介: \n%s\n\n如有链接错误，请至支持群报告。",
     "infoPrivGroup": "群ID: %s\n群标题: %s\n群组邀请链接: %s\n分类: #%s\n简介: \n%s\n\n如有链接错误，请至支持群报告。",
     "errorGroupNotExist": "抱歉，请求群组不存在。",
-    "buttonJoin": "加入"
+    "buttonJoin": "加入",
+    "buttonReport": "举报链接错误"
 }
