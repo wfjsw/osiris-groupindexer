@@ -104,7 +104,7 @@ function processEnrollWaitTag(uid, ret, msg, bot) {
 }
 
 function processEnrollWaitDescription(uid, ret, msg, bot) {
-    bot.sendMessage(uid, langres['promptSendDesc']{
+    bot.sendMessage(uid, langres['promptSendDesc'], {
         reply_markup: {force_reply: true}
     })
     .then((msg) => {
@@ -127,7 +127,7 @@ function processEnrollPublic(uid, groupinfo, msg, bot) {
 }
 
 function processEnrollPrivateWaitLink(uid, groupinfo, msg, bot) {
-    bot.sendMessage(uid, langres['promptSendLink']{
+    bot.sendMessage(uid, langres['promptSendLink'], {
         reply_markup: {force_reply: true}
     })
     .then((msg) => {
