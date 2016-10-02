@@ -93,12 +93,11 @@ function groupSelected(msg, result, bot) {
 }
 
 function processEnrollWaitTag(uid, ret, msg, bot) {
-    var row = [], i = 0;
+    var row = [];
     var col = [];
     tags.forEach((child) => {
         col.push({text: child});
-        i++;
-        if (i == 3) {
+        if (col.length == 3) {
             row.push(col);
             col = [];
         }
@@ -108,7 +107,7 @@ function processEnrollWaitTag(uid, ret, msg, bot) {
         col = [];
     }
     bot.sendMessage(uid, util.format(langres['promptSendTag'], tags.join('\n')), {
-        reply_markup: {keyboard: markup, one_time_keyboard: true}
+        reply_markup: {keyboard: row, one_time_keyboard: true}
     })
     .then((msg) => {
         session[uid] = {status: 'waitfortag', argu: ret};

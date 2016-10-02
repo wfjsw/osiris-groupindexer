@@ -11,12 +11,11 @@ var _e;
 // TODO
 function getList(msg, result, bot) {
     if (msg.chat.id > 0) {
-        var row = [], i = 0;
+        var row = [];
         var col = [];
         tags.forEach((child) => {
             col.push({text: child});
-            i++;
-            if (i == 3) {
+            if (col.length == 3) {
                 row.push(col);
                 col = [];
             }
