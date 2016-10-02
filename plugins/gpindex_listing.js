@@ -11,10 +11,20 @@ var _e;
 // TODO
 function getList(msg, result, bot) {
     if (msg.chat.id > 0) {
-        var markup = [];
+        var row = [], i = 0;
+        var col = [];
         tags.forEach((child) => {
-            markup.push([{text: child}]);
+            col.push({text: child});
+            i++;
+            if (i == 3) {
+                row.push(col);
+                col = [];
+            }
         })
+        if (col.length > 0) {
+            row.push(col);
+            col = [];
+        }
         bot.sendMessage(msg.chat.id, langres['promptChooseTag'], {
             reply_markup: {keyboard: markup}
         })
