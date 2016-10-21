@@ -107,7 +107,7 @@ function processEnrollWaitTag(uid, ret, msg, bot) {
         col = [];
     }
     bot.sendMessage(uid, util.format(langres['promptSendTag'], tags.join('\n')), {
-        reply_markup: {keyboard: row, one_time_keyboard: true}
+        reply_markup: {keyboard: row, one_time_keyboard: true, force_reply: true}
     })
     .then((msg) => {
         session[uid] = {status: 'waitfortag', argu: ret};
@@ -118,7 +118,7 @@ function processEnrollWaitTag(uid, ret, msg, bot) {
 
 function processEnrollWaitDescription(uid, ret, msg, bot) {
     bot.sendMessage(uid, langres['promptSendDesc'], {
-        reply_markup: {hide_keyboard: true, force_reply: true}
+        reply_markup: {force_reply: true}
     })
     .then((msg) => {
         session[uid] = {status: 'waitfordesc', argu: ret};

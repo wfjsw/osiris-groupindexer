@@ -1,6 +1,7 @@
 'use strict';
 
 const admin_id = require('../config.json')['gpindex_admin'];
+const channel_id = require('../config.json')['gpindex_channel'];
 const util = require('util');
 
 var _e;
@@ -85,7 +86,7 @@ function doImportPublicGroup(msg, result, bot) {
                 ginfo.is_public = true;
                 ginfo.tag = tag;
                 ginfo.desc = desc;
-                return _e.libs['gpindex_common'].silentWrite(ginfo);
+                return _e.libs['gpindex_common'].silentInsert(ginfo);
             } else throw {err: 'cannotConfirmCreator'}; 
         }).then((ret) => {
             bot.sendMessage(msg.chat.id, util.inspect(ret) + '\n\n' + util.inspect(ginfo));
@@ -94,6 +95,35 @@ function doImportPublicGroup(msg, result, bot) {
             bot.sendMessage(msg.chat.id, 'Failed\n\n' + util.inspect(e));
         });
     else bot.sendMessage(msg.chat.id, 'Failed to parse Input' + util.inspect(result));
+}
+
+function doTagMove(msg, [cmd, gid, newtag], bot) {
+    if (msg.chat.id == admin_id)
+        _e.libs['gpindex_common'].getRecord(gid)
+        .then((ret) => {
+            if (ret) {
+                return _e.libs['gpindex_common'].silentUpdate(gid, {tag: newtag})
+            } else {
+                bot.sendMessage(msg.chat.id, 'Not Found');
+                throw ret;
+            }
+        }).then((ret) => {
+            bot.sendMessage(msg.chat.id, 'Done. \n\n' + util.inspect(ret));
+        }).catch((e) => {
+            bot.sendMessage(msg.chat.id, 'Failed\n\n' + util.inspect(e));
+        })
+}
+
+function doRemoveFeedByID(msg, [cmd, fid], bot) {
+    if (msg.chat.id == admin_id)
+        bot.editMessageText('*** 群组信息不可用 ***', {
+            chat_id: channel_id,
+            message_id: fid
+        }).then((ret) => {
+            bot.sendMessage(msg.chat.id, 'Done. \n\n' + util.inspect(ret));
+        }).catch((e) => {
+            bot.sendMessage(msg.chat.id, 'Failed\n\n' + util.inspect(e));
+        })
 }
 
 module.exports = {
@@ -105,6 +135,8 @@ module.exports = {
         [/^\/addcategory (.*)$/, addCategory],
         [/^\/removeitem ([0-9-]{6,})$/, removeItem],
         [/^\/markinvaild ([0-9-]{6,})$/, markInvaild],
-        [/^\/import_pub (@[_A-Za-z0-9]{4,}) ([^\n\s]+) ((?:.|\n)+)/m, doImportPublicGroup]
+        [/^\/import_pub (@[_A-Za-z0-9]{4,}) ([^\n\s]+) ((?:.|\n)+)/m, doImportPublicGroup],
+        [/^\/tagmove ([0-9-]{6,}) ([^\n\s]+)$/, doTagMove],
+        [/^\/rmfeedid ([0-9]{1,})$/, doRemoveFeedByID]
     ]
 }
