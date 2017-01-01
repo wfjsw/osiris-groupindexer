@@ -97,9 +97,10 @@ function doImportPublicGroup(msg, result, bot) {
     else bot.sendMessage(msg.chat.id, 'Failed to parse Input' + util.inspect(result));
 }
 
-function doTagMove(msg, [cmd, gid, newtag], bot) {
-    if (msg.chat.id == admin_id)
-        _e.libs['gpindex_common'].getRecord(gid)
+function doTagMove(msg, result, bot) {
+    if (msg.chat.id == admin_id) { 
+        var gid = result[1], newtag = result[2];
+	    _e.libs['gpindex_common'].getRecord(gid)
         .then((ret) => {
             if (ret) {
                 return _e.libs['gpindex_common'].silentUpdate(gid, {tag: newtag})
@@ -112,10 +113,12 @@ function doTagMove(msg, [cmd, gid, newtag], bot) {
         }).catch((e) => {
             bot.sendMessage(msg.chat.id, 'Failed\n\n' + util.inspect(e));
         })
+    }
 }
 
-function doRemoveFeedByID(msg, [cmd, fid], bot) {
-    if (msg.chat.id == admin_id)
+function doRemoveFeedByID(msg, result, bot) {
+    if (msg.chat.id == admin_id) {
+        var fid = result[1];
         bot.editMessageText('*** 群组信息不可用 ***', {
             chat_id: channel_id,
             message_id: fid
@@ -124,6 +127,36 @@ function doRemoveFeedByID(msg, [cmd, fid], bot) {
         }).catch((e) => {
             bot.sendMessage(msg.chat.id, 'Failed\n\n' + util.inspect(e));
         })
+    }
+}
+
+function getChat(msg, result, bot){
+    if (msg.chat.id == admin_id)
+        bot.getChat(parseInt(result[1]))
+        .then((ret) => {
+            bot.sendMessage(msg.chat.id, util.inspect(ret));
+        })
+        .catch((e) => {
+            bot.sendMessage(msg.chat.id, util.inspect(e));
+        })
+}
+
+function doForceUpdate(msg, result, bot) {
+    if (msg.chat.id == admin_id)
+        bot.getChat(parseInt(result[1]))
+        .then((ret) => {
+            var updation = {
+                title: ret.title
+            }
+            if (ret.username) updation.username = ret.username;
+            return _e.libs['gpindex_common'].silentUpdate(ret.id, updation)
+        })
+        .then((ret) => {
+            bot.sendMessage(msg.chat.id, util.inspect(ret));
+        })
+        .catch((e) => {
+            bot.sendMessage(msg.chat.id, util.inspect(e));
+        });
 }
 
 module.exports = {
@@ -137,6 +170,9 @@ module.exports = {
         [/^\/markinvaild ([0-9-]{6,})$/, markInvaild],
         [/^\/import_pub (@[_A-Za-z0-9]{4,}) ([^\n\s]+) ((?:.|\n)+)/m, doImportPublicGroup],
         [/^\/tagmove ([0-9-]{6,}) ([^\n\s]+)$/, doTagMove],
-        [/^\/rmfeedid ([0-9]{1,})$/, doRemoveFeedByID]
+        [/^\/rmfeedid ([0-9]{1,})$/, doRemoveFeedByID],
+        [/^\/rmfeedid https:\/\/telegram.me\/[_A-Za-z0-9]{4,}\/([0-9]{1,})$/, doRemoveFeedByID],
+        [/^\/getchat ([0-9-]{6,})$/, getChat],
+        [/^\/forceupdate ([0-9-]{6,})$/, doForceUpdate]
     ]
 }

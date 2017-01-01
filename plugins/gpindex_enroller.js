@@ -26,7 +26,8 @@ function startEnrollment(msg, result, bot){
         // Prompt user to choose group
         var cburl = util.format('https://telegram.me/%s?startgroup=%s', _e.me.username, 'grpselect');
         bot.sendMessage(msg.from.id, langres['promptChooseGroup'], {
-		reply_markup: {inline_keyboard:[[{ text: langres['buttonChooseGroup'], url: cburl }]]}
+            reply_to_message_id: msg.message_id,
+            reply_markup: {inline_keyboard:[[{ text: langres['buttonChooseGroup'], url: cburl }]]}
         }).catch((err) => {
             errorProcess(msg, bot, err)
         })
@@ -60,7 +61,8 @@ function groupChosen(msg, result, bot){
             var cburl = util.format('https://telegram.me/%s?start=enroll@%d', _e.me.username, gid);
             if (ret) {
                 bot.sendMessage(gid, langres['promptGroupChosen'], {
-		            reply_markup: {inline_keyboard:[[{ text: langres['buttonGroupChosenContinue'], url: cburl }]]}
+                    reply_to_message_id: msg.message_id,
+                    reply_markup: {inline_keyboard:[[{ text: langres['buttonGroupChosenContinue'], url: cburl }]]}
                 }); // offer button to continue && set state
                 session[uid] = {status: 'pending_enroll_pm'};
                 _e.libs['gpindex_common'].setLock(uid);
@@ -93,7 +95,7 @@ function groupSelected(msg, result, bot) {
 }
 
 function processEnrollWaitTag(uid, ret, msg, bot) {
-    var row = [];
+    var row = [], i = 0;
     var col = [];
     tags.forEach((child) => {
         col.push({text: child});
@@ -107,7 +109,7 @@ function processEnrollWaitTag(uid, ret, msg, bot) {
         col = [];
     }
     bot.sendMessage(uid, util.format(langres['promptSendTag'], tags.join('\n')), {
-        reply_markup: {keyboard: row, one_time_keyboard: true, force_reply: true}
+        reply_markup: {keyboard: row, one_time_keyboard: true}
     })
     .then((msg) => {
         session[uid] = {status: 'waitfortag', argu: ret};
@@ -249,6 +251,7 @@ function updatePrivateLink(msg, result, bot) {
                 return _e.libs['gpindex_common'].doEnrollment(updatenotify);
             } else if (ret.is_public && !msg.chat.username) {
                 updatenotify.title = ret.title;
+		updatenotify.is_public = false;
                 bot.sendMessage(msg.chat.id, langres['infoPubToPrivDone']);
                 return _e.libs['gpindex_common'].doEnrollment(updatenotify);
             } else {
@@ -296,7 +299,7 @@ function updateInfo(msg, result, bot) {
             } else {
                 updatenotify.is_public = false;
             }
-            if (old_stat.title == updatenotify.title && old_stat.is_public == updatenotify.is_public)
+            if (old_stat.title == updatenotify.title && old_stat.username == updatenotify.username && old_stat.is_public == updatenotify.is_public)
                 throw 'errorNoChanges';
             else 
                 return _e.libs['gpindex_common'].doEnrollment(updatenotify);

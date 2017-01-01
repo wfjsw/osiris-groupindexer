@@ -15,8 +15,8 @@ function initevents() {
         // New Public Group
         var text = util.format(langres['newPublic'], groupinfo.title, groupinfo.username, groupinfo.tag, groupinfo.desc, groupinfo.id);
         bot.sendMessage(channel_id, text, {
-            disable_web_page_preview: true,
-		    reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: 'https://telegram.me/' + groupinfo.username}]]}
+		disable_web_page_preview: true,
+		reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: 'https://telegram.me/' + groupinfo.username}]]}
         }).catch((e) => {
             console.error(e);
             bot.sendMessage(admin_id, e);
@@ -27,7 +27,7 @@ function initevents() {
         .then((ret) => {
             var text = util.format(langres['updatePublic'], ret.title, ret.username, ret.tag, ret.desc, ret.id);
             return bot.sendMessage(channel_id, text, {
-                disable_web_page_preview: true,
+		disable_web_page_preview: true,
                 reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: 'https://telegram.me/' + ret.username}]]}
             });
         })
@@ -40,7 +40,7 @@ function initevents() {
         // New Public Group
         var text = util.format(langres['newPrivate'], groupinfo.title, groupinfo.invite_link, groupinfo.tag, groupinfo.desc, groupinfo.id);
         bot.sendMessage(channel_id, text, {
-            disable_web_page_preview: true,
+		disable_web_page_preview: true,
 		    reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: groupinfo.invite_link}]]}
         }).catch((e)=>{
             bot.sendMessage(admin_id, e);
@@ -53,7 +53,7 @@ function initevents() {
         .then((ret) => {
             var text = util.format(langres['updatePrivate'], ret.title, ret.invite_link, ret.tag, ret.desc, ret.id);
             bot.sendMessage(channel_id, text, {
-                disable_web_page_preview: true,
+		    disable_web_page_preview: true,
                 reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: ret.invite_link}]]}
             });
         })

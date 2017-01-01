@@ -11,7 +11,7 @@ var _e;
 // TODO
 function getList(msg, result, bot) {
     if (msg.chat.id > 0) {
-        var row = [];
+        var row = [], i = 0;
         var col = [];
         tags.forEach((child) => {
             col.push({text: child});
@@ -25,7 +25,8 @@ function getList(msg, result, bot) {
             col = [];
         }
         bot.sendMessage(msg.chat.id, langres['promptChooseTag'], {
-            reply_markup: {keyboard: markup}
+                reply_to_message_id: msg.message_id,
+    		reply_markup: {keyboard: row}
         })
     }
 }
@@ -39,11 +40,12 @@ function processText(msg, result, bot) {
                 recs.forEach((child) => {
                     var link = 'https://telegram.me/' + _e.me.username + '?start=getdetail@' + child.id;
                     //out += util.format('<a href="%s">%s</a>\n', link, he.encode(child.title));
-                    if (child.is_public) out += util.format('<a href="https://telegram.me/%s">%s</a> (<a href="%s">详情</a>)\n', child.username, he.encode(child.title), link);
-                    else out += util.format('<a href="%s">%s</a> (<a href="%s">详情</a>)\n', child.invite_link, he.encode(child.title), link);
+                    if (child.is_public) out += util.format('👥📰 <a href="https://telegram.me/%s">%s</a> (<a href="%s">详情</a>)\n', child.username, he.encode(child.title), link);
+                    else out += util.format('👥🔐 <a href="%s">%s</a> (<a href="%s">详情</a>)\n', child.invite_link, he.encode(child.title), link);
                 })
                 bot.sendMessage(msg.chat.id, out, {
                     parse_mode: 'HTML',
+		    reply_to_message_id: msg.message_id,
                     disable_web_page_preview: true
                 }).catch((e) => {
                     var errorlog = '```\n' + util.inspect(e) + '```\n';
@@ -83,6 +85,27 @@ function getDetail(msg, result, bot) {
     })
 }
 
+function getMyGroups(msg, result, bot) {
+    if (msg.chat.id > 0)
+    _e.libs['gpindex_common'].getRecByCreator(msg.from.id)
+    .then((recs) => {
+        var out = '';
+	if (recs)
+        recs.forEach((rec) => {
+            var line;
+            line = rec.id;
+            line += ' - ';
+            line += rec.title + ` (#${rec.tag}): \n`;
+            line += rec.is_public ? '@'+rec.username : rec.invite_link;
+            out += line + '\n\n';
+        });
+	else out = 'No Groups.'
+        bot.sendMessage(msg.chat.id, out, {
+            reply_to_mesaage_id: msg.message_id
+        });
+    });
+}
+
 module.exports = {
     init: (e) => {
         _e = e;
@@ -91,6 +114,7 @@ module.exports = {
         [/^\/list$/, getList],
         ['text', processText],
         [/^\/start getdetail@([0-9-]{6,})/, getDetail],
-        [/^\/getdetail ([0-9-]{6,})/, getDetail]
+        [/^\/getdetail ([0-9-]{6,})/, getDetail],
+        [/^\/mygroups$/, getMyGroups]
     ]
 }
