@@ -171,7 +171,7 @@ module.exports = {
         [/^\/import_pub (@[_A-Za-z0-9]{4,}) ([^\n\s]+) ((?:.|\n)+)/m, doImportPublicGroup],
         [/^\/tagmove ([0-9-]{6,}) ([^\n\s]+)$/, doTagMove],
         [/^\/rmfeedid ([0-9]{1,})$/, doRemoveFeedByID],
-        [/^\/rmfeedid https:\/\/telegram.me\/[_A-Za-z0-9]{4,}\/([0-9]{1,})$/, doRemoveFeedByID],
+        [/^\/rmfeedid https:\/\/(?:telegram.me|t.me)\/[_A-Za-z0-9]{4,}\/([0-9]{1,})$/, doRemoveFeedByID],
         [/^\/getchat ([0-9-]{6,})$/, getChat],
         [/^\/forceupdate ([0-9-]{6,})$/, doForceUpdate]
     ]

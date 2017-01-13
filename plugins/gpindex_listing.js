@@ -40,8 +40,13 @@ function processText(msg, result, bot) {
                 recs.forEach((child) => {
                     var link = 'https://telegram.me/' + _e.me.username + '?start=getdetail@' + child.id;
                     //out += util.format('<a href="%s">%s</a>\n', link, he.encode(child.title));
-                    if (child.is_public) out += util.format('👥📰 <a href="https://telegram.me/%s">%s</a> (<a href="%s">详情</a>)\n', child.username, he.encode(child.title), link);
-                    else out += util.format('👥🔐 <a href="%s">%s</a> (<a href="%s">详情</a>)\n', child.invite_link, he.encode(child.title), link);
+                    if (child.type == 'group' || child.type == 'supergroup') {
+                        if (child.is_public) out += util.format('👥🌐 <a href="https://telegram.me/%s">%s</a> (<a href="%s">详情</a>)\n', child.username, he.encode(child.title), link);
+                        else out += util.format('👥🔒 <a href="%s">%s</a> (<a href="%s">详情</a>)\n', child.invite_link, he.encode(child.title), link);
+                    } else if (child.type == 'channel') {
+                        if (child.is_public) out += util.format('📢🌐 <a href="https://telegram.me/%s">%s</a> (<a href="%s">详情</a>)\n', child.username, he.encode(child.title), link);
+                        else out += util.format('📢🔒 <a href="%s">%s</a> (<a href="%s">详情</a>)\n', child.invite_link, he.encode(child.title), link);
+                    }
                 })
                 bot.sendMessage(msg.chat.id, out, {
                     parse_mode: 'HTML',

@@ -249,7 +249,7 @@ function updatePrivateLink(msg, result, bot) {
             if (ret && !ret.is_public) {
                 updatenotify.title = ret.title;
                 return _e.libs['gpindex_common'].doEnrollment(updatenotify);
-            } else if (ret.is_public && !msg.chat.username) {
+            } else if (ret && ret.is_public && !msg.chat.username) {
                 updatenotify.title = ret.title;
 		updatenotify.is_public = false;
                 bot.sendMessage(msg.chat.id, langres['infoPubToPrivDone']);
@@ -544,7 +544,9 @@ module.exports = {
         [/^\/cancel$/, purgeState],
         ['callback_query', processCallbackButton],
         [/^(https:\/\/telegram.me\/joinchat\/.+)$/, processLink],
+        [/^(https:\/\/t.me\/joinchat\/.+)$/, processLink],
         [/^\/grouplink_update (https:\/\/telegram.me\/joinchat\/.+)/, updatePrivateLink],
+        [/^\/grouplink_update (https:\/\/t.me\/joinchat\/.+)/, updatePrivateLink],
         [/^\/update$/, updateInfo],
         [/^\/tag_update (.+)$/, updateTag],
         [/^\/desc_update ((?:.|\n)+)/m, updateDesc],
