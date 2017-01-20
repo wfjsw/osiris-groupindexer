@@ -1,6 +1,8 @@
 'use strict'; 
 var _e;
 
+const ADMIN_GROUP = require('../config.json')['gpindex_admin'];
+
 function passiveUpdate(msg, bot) {
     if (msg.chat.id < 0) {
         var gid = msg.chat.id
@@ -17,7 +19,7 @@ function passiveUpdate(msg, bot) {
             }
             if (updatable == true) return _e.libs['gpindex_common'].silentUpdate(gid, updation);
         }).catch((e) => {
-            // I hate error. Just eat it.
+            // Forget it
         })
     }
 }

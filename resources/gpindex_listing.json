@@ -1,10 +1,14 @@
 {
     "promptChooseTag": "请从下方按钮中选择一个群组分类。",
     "errorTagNotExist": "对不起，该分类不存在。",
+    "errorUserBanned": "对不起，您已被禁止使用此功能。",
     "infoGroups": "该分类下属群组：\n\n",
-    "infoPubGroup": "群ID: %s\n群标题: %s\n群组身份: @%s\n分类: #%s\n简介: \n%s\n\n如有链接错误，请至支持群报告。",
-    "infoPrivGroup": "群ID: %s\n群标题: %s\n群组邀请链接: %s\n分类: #%s\n简介: \n%s\n\n如有链接错误，请至支持群报告。",
+    "infoPubGroup": "ID: %s\n群标题: %s\n群组身份: @%s\n分类: #%s\n简介: \n%s",
+    "infoPubChan": "ID: %s\n频道名: %s\n频道身份: @%s\n分类: #%s\n简介: \n%s",
+    "infoPrivGroup": "ID: %s\n群标题: %s\n分类: #%s\n简介: \n%s",
     "errorGroupNotExist": "抱歉，请求群组不存在。",
     "buttonJoin": "加入",
-    "buttonReport": "举报链接错误"
+    "buttonReport": "报告链接错误",
+    "tagOfficial": "✅官方",
+    "tagUnOfficial": "非官方"
 }

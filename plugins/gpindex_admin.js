@@ -4,7 +4,7 @@ const admin_id = require('../config.json')['gpindex_admin'];
 const channel_id = require('../config.json')['gpindex_channel'];
 const util = require('util');
 
-var _e;
+var _e, comlib;
 
 function writeMenu(msg, result, bot) {
 
@@ -16,7 +16,7 @@ function addCategory(msg, result, bot) {
 
 function removeItem(msg, result, bot) {
     if (msg.chat.id == admin_id)
-        _e.libs['gpindex_common'].doRemoval(result[1])
+        comlib.doRemoval(result[1])
         .then((ret) => {
             bot.sendMessage(msg.chat.id, 'Success');
         })
@@ -27,7 +27,7 @@ function removeItem(msg, result, bot) {
 
 function markInvaild(msg, result, bot) {
     if (msg.chat.id == admin_id)
-        _e.libs['gpindex_common'].getRecord(result[1])
+        comlib.getRecord(result[1])
         .then((ret) => {
             if (ret) {
                 return bot.sendMessage(ret.creator, '您的群组 ' + ret.title + ' 链接已过期，请及时更新。');
@@ -44,11 +44,11 @@ function markInvaild(msg, result, bot) {
 
 function doPublish(msg, result, bot) {
     if (msg.chat.id == admin_id)
-        _e.libs['gpindex_common'].getRecord(result[1])
+        comlib.getRecord(result[1])
         .then((ret) => {
             if (ret) {
-                if (ret.is_public) _e.libs['gpindex_common'].event.emit('new_public_commit', ret);
-                else _e.libs['gpindex_common'].event.emit('new_private_commit', ret);
+                if (ret.is_public) comlib.event.emit('new_public_commit', ret);
+                else comlib.event.emit('new_private_commit', ret);
             } else {
                 bot.sendMessage(msg.chat.id, 'Not Found');
                 throw ret;
@@ -70,7 +70,7 @@ function doImportPublicGroup(msg, result, bot) {
         bot.getChat(gname)
         .then((ret) => {
             ginfo = ret;
-            return _e.libs['gpindex_common'].getRecord(ret.id)
+            return comlib.getRecord(ret.id)
         })
         .then((ret) => {
             if (ret) {
@@ -86,7 +86,7 @@ function doImportPublicGroup(msg, result, bot) {
                 ginfo.is_public = true;
                 ginfo.tag = tag;
                 ginfo.desc = desc;
-                return _e.libs['gpindex_common'].silentInsert(ginfo);
+                return comlib.silentInsert(ginfo);
             } else throw {err: 'cannotConfirmCreator'}; 
         }).then((ret) => {
             bot.sendMessage(msg.chat.id, util.inspect(ret) + '\n\n' + util.inspect(ginfo));
@@ -100,10 +100,10 @@ function doImportPublicGroup(msg, result, bot) {
 function doTagMove(msg, result, bot) {
     if (msg.chat.id == admin_id) { 
         var gid = result[1], newtag = result[2];
-	    _e.libs['gpindex_common'].getRecord(gid)
+	    comlib.getRecord(gid)
         .then((ret) => {
             if (ret) {
-                return _e.libs['gpindex_common'].silentUpdate(gid, {tag: newtag})
+                return comlib.silentUpdate(gid, {tag: newtag})
             } else {
                 bot.sendMessage(msg.chat.id, 'Not Found');
                 throw ret;
@@ -149,7 +149,7 @@ function doForceUpdate(msg, result, bot) {
                 title: ret.title
             }
             if (ret.username) updation.username = ret.username;
-            return _e.libs['gpindex_common'].silentUpdate(ret.id, updation)
+            return comlib.silentUpdate(ret.id, updation)
         })
         .then((ret) => {
             bot.sendMessage(msg.chat.id, util.inspect(ret));
@@ -159,20 +159,70 @@ function doForceUpdate(msg, result, bot) {
         });
 }
 
+function getUserFlag(msg, result, bot) {
+    if (msg.chat.id == admin_id)
+        comlib.UserFlag.queryUserFlag(result[1], result[2])
+        .then((ret) => {
+            bot.sendMessage(msg.chat.id, util.inspect(ret));
+        })
+        .catch((e) => {
+            bot.sendMessage(msg.chat.id, util.inspect(e));
+        });
+}
+
+function setUserFlag(msg, result, bot) {
+    if (msg.chat.id == admin_id)
+        comlib.UserFlag.setUserFlag(result[1], result[2], parseInt(result[3]))
+        .then((ret) => {
+            bot.sendMessage(msg.chat.id, util.inspect(ret));
+        })
+        .catch((e) => {
+            bot.sendMessage(msg.chat.id, util.inspect(e));
+        });
+}
+
+function getGroupExTag(msg, result, bot) {
+    if (msg.chat.id == admin_id)
+        comlib.GroupExTag.queryGroupExTag(result[1], result[2])
+        .then((ret) => {
+            bot.sendMessage(msg.chat.id, util.inspect(ret));
+        })
+        .catch((e) => {
+            bot.sendMessage(msg.chat.id, util.inspect(e));
+        });
+}
+
+function setGroupExTag(msg, result, bot) {
+    if (msg.chat.id == admin_id)
+        comlib.GroupExTag.setGroupExTag(result[1], result[2], parseInt(result[3]))
+        .then((ret) => {
+            bot.sendMessage(msg.chat.id, util.inspect(ret));
+        })
+        .catch((e) => {
+            bot.sendMessage(msg.chat.id, util.inspect(e));
+        });
+}
+
+
 module.exports = {
     init: (e) => {
         _e = e;
+        comlib = _e.libs['gpindex_common'];
     },
     run: [
         [/^\/publish ([0-9-]{6,})$/, doPublish],
         [/^\/addcategory (.*)$/, addCategory],
         [/^\/removeitem ([0-9-]{6,})$/, removeItem],
-        [/^\/markinvaild ([0-9-]{6,})$/, markInvaild],
+        [/^\/markinvalid ([0-9-]{6,})$/, markInvaild],
         [/^\/import_pub (@[_A-Za-z0-9]{4,}) ([^\n\s]+) ((?:.|\n)+)/m, doImportPublicGroup],
         [/^\/tagmove ([0-9-]{6,}) ([^\n\s]+)$/, doTagMove],
         [/^\/rmfeedid ([0-9]{1,})$/, doRemoveFeedByID],
         [/^\/rmfeedid https:\/\/(?:telegram.me|t.me)\/[_A-Za-z0-9]{4,}\/([0-9]{1,})$/, doRemoveFeedByID],
         [/^\/getchat ([0-9-]{6,})$/, getChat],
-        [/^\/forceupdate ([0-9-]{6,})$/, doForceUpdate]
+        [/^\/forceupdate ([0-9-]{6,})$/, doForceUpdate],
+        [/^\/getflag ([0-9-]{6,}) ([^\s]+)$/, getUserFlag],
+        [/^\/setflag ([0-9-]{6,}) ([^\s]+) ([^\s]+)$/, setUserFlag],
+        [/^\/getextag ([0-9-]{6,}) ([^\s]+)$/, getGroupExTag],
+        [/^\/setextag ([0-9-]{6,}) ([^\s]+) ([^\s]+)$/, setGroupExTag]
     ]
 }

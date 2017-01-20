@@ -13,10 +13,12 @@ function initevents() {
     bot = _e.bot;
     context.on('new_public_commit', (groupinfo) => {
         // New Public Group
-        var text = util.format(langres['newPublic'], groupinfo.title, groupinfo.username, groupinfo.tag, groupinfo.desc, groupinfo.id);
+        var text;
+        if (groupinfo.type == 'channel') text = util.format(langres['newPublicChan'], groupinfo.title, groupinfo.username, groupinfo.tag, groupinfo.desc, groupinfo.id);
+        else text = util.format(langres['newPublic'], groupinfo.title, groupinfo.username, groupinfo.tag, groupinfo.desc, groupinfo.id);
         bot.sendMessage(channel_id, text, {
-		disable_web_page_preview: true,
-		reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: 'https://telegram.me/' + groupinfo.username}]]}
+            disable_web_page_preview: true,
+            reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: 'https://t.me/' + groupinfo.username}]]}
         }).catch((e) => {
             console.error(e);
             bot.sendMessage(admin_id, e);
@@ -25,10 +27,12 @@ function initevents() {
     context.on('update_public_data', (groupinfo) => {
         _e.libs['gpindex_common'].getRecord(groupinfo.id)
         .then((ret) => {
-            var text = util.format(langres['updatePublic'], ret.title, ret.username, ret.tag, ret.desc, ret.id);
+            var text;
+            if (groupinfo.type == 'channel') text = util.format(langres['updatePublicChan'], ret.title, ret.username, ret.tag, ret.desc, ret.id);
+            else text = util.format(langres['updatePublic'], ret.title, ret.username, ret.tag, ret.desc, ret.id);
             return bot.sendMessage(channel_id, text, {
-		disable_web_page_preview: true,
-                reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: 'https://telegram.me/' + ret.username}]]}
+                disable_web_page_preview: true,
+                reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: 'https://t.me/' + ret.username}]]}
             });
         })
         .catch((e) => {
@@ -38,10 +42,11 @@ function initevents() {
     });
     context.on('new_private_commit', (groupinfo) => {
         // New Public Group
-        var text = util.format(langres['newPrivate'], groupinfo.title, groupinfo.invite_link, groupinfo.tag, groupinfo.desc, groupinfo.id);
+        var link = 'https://t.me/' + _e.me.username + '?start=getdetail@' + groupinfo.id;
+        var text = util.format(langres['newPrivate'], groupinfo.title, groupinfo.tag, groupinfo.desc, groupinfo.id);
         bot.sendMessage(channel_id, text, {
 		disable_web_page_preview: true,
-		    reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: groupinfo.invite_link}]]}
+		    reply_markup: {inline_keyboard:[[{text: langres['buttonDetail'], url: link}]]}
         }).catch((e)=>{
             bot.sendMessage(admin_id, e);
             console.error(e);
@@ -51,10 +56,11 @@ function initevents() {
         // Private Group Updated
         _e.libs['gpindex_common'].getRecord(groupinfo.id)
         .then((ret) => {
-            var text = util.format(langres['updatePrivate'], ret.title, ret.invite_link, ret.tag, ret.desc, ret.id);
+            var link = 'https://t.me/' + _e.me.username + '?start=getdetail@' + groupinfo.id;
+            var text = util.format(langres['updatePrivate'], ret.title, ret.tag, ret.desc, ret.id);
             bot.sendMessage(channel_id, text, {
 		    disable_web_page_preview: true,
-                reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: ret.invite_link}]]}
+                reply_markup: {inline_keyboard:[[{text: langres['buttonDetail'], url: link}]]}
             });
         })
         .catch((e) => {
