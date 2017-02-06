@@ -96,6 +96,68 @@ function processText(msg, result, bot) {
     }
 }
 
+function doSearch(msg, result, bot) {
+    if (!comlib.getLock(msg.from.id) && msg.chat.id > 0) {
+        comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
+        .then((ret) => {
+            if (!ret) {
+                comlib.searchByName(result[1])
+                .then((recs) => {
+                    if(recs.length > 0) {
+                        var outprefix = langres['infoGroups']; // Deprecated
+                        var outmsg = [];
+                        outmsg[0] = '';
+                        var head = 0;
+                        recs.forEach((child) => {
+                            var link = 'https://t.me/' + _e.me.username + '?start=getdetail@' + child.id;
+                            var line, prefix;
+                            //out += util.format('<a href="%s">%s</a>\n', link, he.encode(child.title));
+                            if (child.type == 'group' || child.type == 'supergroup') {
+                                if (child.is_public) prefix = '👥🌐|';
+                                    else prefix = '👥🔒|';
+                            } else if (child.type == 'channel') {
+                                if (child.is_public) prefix = '📢🌐|';
+                                    else prefix = '📢🔒|';
+                            }
+                            if (child.extag) {
+                                if (child.extag['official'] == 1) prefix += `<i>【${langres['tagOfficial']}】</i>|`;
+                                    else if (child.extag['official'] == 2) prefix += `<i>【${langres['tagUnOfficial']}】</i>|`;
+                            }
+                            if (child.is_public) line = prefix + util.format(' <a href="https://t.me/%s">%s</a> (<a href="%s">详情</a>)\n', child.username, he.encode(child.title), link);
+                                else line = prefix + util.format(' <a href="%s">%s</a> (<a href="%s">详情</a>)\n', child.invite_link, he.encode(child.title), link);
+                            head++;
+                            if (head <= 40) outmsg[outmsg.length - 1] += line;
+                                else {
+                                outmsg[outmsg.length] = line;
+                                head = 1;
+                                }
+                        })
+                        for (var i=0; i<outmsg.length; i++) {
+                            bot.sendMessage(msg.chat.id, outmsg[i], {
+                                parse_mode: 'HTML',
+                                reply_to_message_id: msg.message_id,
+                                disable_web_page_preview: true
+                            }).catch((e) => {
+                                var errorlog = '```\n' + util.inspect(e) + '```\n';
+                                bot.sendMessage(msg.chat.id, '发生了一些错误。我们已将错误日志发送至管理员。');
+                                bot.sendMessage(admin_id, errorlog, {
+                                    parse_mode: 'Markdown'
+                                });
+                            })
+                        }
+                    } else {
+                        bot.sendMessage(msg.chat.id, langres['errorNoSearchMatchCriteria'], {
+                            reply_to_message_id: msg.message_id
+                        });
+                    }
+                })
+            } else {
+                bot.sendMessage(msg.chat.id, langres['errorUserBanned']);
+            }
+        });
+    }
+}
+
 function getDetail(msg, result, bot) {
     comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
     .then((ret) => {
@@ -167,6 +229,7 @@ module.exports = {
         ['text', processText],
         [/^\/start getdetail@([0-9-]{6,})/, getDetail],
         [/^\/getdetail ([0-9-]{6,})/, getDetail],
-        [/^\/mygroups$/, getMyGroups]
+        [/^\/mygroups$/, getMyGroups],
+        [/^\/search (.+)$/, doSearch]
     ]
 }

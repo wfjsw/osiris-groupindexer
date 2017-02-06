@@ -400,7 +400,10 @@ function updateTag(msg, result, bot) {
             .then((ret) => {
                 if (ret) 
                     if (ret.creator != msg.from.id) throw 'errorNotCreator';
-                    else return bot.getChat(msg.chat.id);
+                    else {
+                        old_stat = ret
+                        return bot.getChat(msg.chat.id)
+                    }
                 else throw 'errorNotIndexed';
             })
             .then((ret) => {
@@ -506,10 +509,10 @@ module.exports = {
         ['callback_query', processCallbackButton],
         [/^(https:\/\/telegram.me\/joinchat\/.+)$/, processLink],
         [/^(https:\/\/t.me\/joinchat\/.+)$/, processLink],
-        [/^(http:\/\/telegra.ph\/.+)$/, processLink],
+        //[/^(http:\/\/telegra.ph\/.+)$/, processLink],
         [/^\/grouplink_update (https:\/\/telegram.me\/joinchat\/.+)$/, updatePrivateLink],
         [/^\/grouplink_update (https:\/\/t.me\/joinchat\/.+)$/, updatePrivateLink],
-        [/^\/grouplink_update (http:\/\/telegra.ph\/.+)$/, updatePrivateLink],
+        //[/^\/grouplink_update (http:\/\/telegra.ph\/.+)$/, updatePrivateLink],
         [/^\/update$/, updateInfo],
         [/^\/tag_update (.+)$/, updateTag],
         [/^\/desc_update ((?:.|\n)+)/m, updateDesc],

@@ -3,6 +3,7 @@
 const admin_id = require('../config.json')['gpindex_admin'];
 const channel_id = require('../config.json')['gpindex_channel'];
 const util = require('util');
+const moment = require('moment');
 
 var _e, comlib;
 
@@ -148,7 +149,12 @@ function doForceUpdate(msg, result, bot) {
             var updation = {
                 title: ret.title
             }
-            if (ret.username) updation.username = ret.username;
+            if (ret.username) {
+                updation.username = ret.username
+                updation.is_public = true
+            } else {
+                updation.is_public = false
+            }
             return comlib.silentUpdate(ret.id, updation)
         })
         .then((ret) => {
@@ -171,14 +177,20 @@ function getUserFlag(msg, result, bot) {
 }
 
 function setUserFlag(msg, result, bot) {
-    if (msg.chat.id == admin_id)
-        comlib.UserFlag.setUserFlag(result[1], result[2], parseInt(result[3]))
+    if (msg.chat.id == admin_id) {
+        var value = result[3];
+        // There are some extra things to be done for flag 'spam'
+        if (result[2] == 'spam') {
+            value = moment().add(moment.duration(result[3].toUpperCase())).unix();
+        }
+        comlib.UserFlag.setUserFlag(result[1], result[2], parseInt(value))
         .then((ret) => {
             bot.sendMessage(msg.chat.id, util.inspect(ret));
         })
         .catch((e) => {
             bot.sendMessage(msg.chat.id, util.inspect(e));
         });
+    }
 }
 
 function getGroupExTag(msg, result, bot) {

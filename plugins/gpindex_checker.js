@@ -9,7 +9,7 @@ var session = {};
 
 function sendValidateRequest(groupinfo) {
     if (!groupinfo.is_update) {
-        var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s\nTag: %s\nDesc: %s', groupinfo.id, groupinfo.title, groupinfo.invite_link, groupinfo.tag, groupinfo.desc);
+        var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s\nTag: %s\nCreator: %s\nDesc: %s\n', groupinfo.id, groupinfo.title, groupinfo.invite_link, groupinfo.tag, groupinfo.creator, groupinfo.desc);
         _e.bot.sendMessage(VALIDATION_GROUP, req, {
             reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
         }).then((msg) => {
@@ -20,7 +20,7 @@ function sendValidateRequest(groupinfo) {
     } else {
         _e.libs['gpindex_common'].getRecord(groupinfo.id)
         .then((ret) => {
-            var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s\nTag: %s\nDesc: %s\n\nUpdation: ', ret.id, ret.title, ret.invite_link, ret.tag, ret.desc, util.inspect(groupinfo));
+            var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s\nTag: %sCreator: %s\nDesc: %s\n\nUpdation: ', ret.id, ret.title, ret.invite_link, ret.tag, ret.creator, ret.desc, util.inspect(groupinfo));
             _e.bot.sendMessage(VALIDATION_GROUP, req, {
                 reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
             })
@@ -61,7 +61,7 @@ function processCallbackButton(msg, type, bot) {
                 delete session[gid];
                 _e.libs['gpindex_common'].doValidate(gid, is_update);
                 bot.answerCallbackQuery(msg.id, 'Validated!');
-                bot.editMessageText('Validated!', {
+                bot.editMessageText('Validated by ' + msg.from.first_name + ' ' + msg.from.last_name, {
                     chat_id: msg.message.chat.id,
                     message_id: msg.message.message_id 
                 });
@@ -74,7 +74,7 @@ function processCallbackButton(msg, type, bot) {
                 var creator = session[gid].creator;
                 delete session[gid];
                 bot.answerCallbackQuery(msg.id, 'Rejected!');
-                bot.editMessageText('Rejected!', {
+                bot.editMessageText('Rejected by ' + msg.from.first_name + ' ' + msg.from.last_name, {
                     chat_id: msg.message.chat.id,
                     message_id: msg.message.message_id 
                 });
