@@ -13,7 +13,9 @@ var tags = require('../config.json')['gpindex_tags'];
 function errorProcess(msg, bot, err) {
     var errorlog = '```\n' + util.inspect(err) + '```\n';
     console.error(err);
-    bot.sendMessage(msg.chat.id, langres['infoBugReport']);
+    bot.sendMessage(msg.chat.id, langres['infoBugReport'], {
+        reply_to_message_id: msg.message_id
+    });
     bot.sendMessage(admin_id, errorlog, {
         parse_mode: 'Markdown'
     });
@@ -244,23 +246,34 @@ function updatePrivateLink(msg, result, bot) {
                 if (child.user.id == msg.from.id && child.status == 'creator') isadmin = true
             });
             if (isadmin) return comlib.getRecord(msg.chat.id);
+                else throw 'errorNotCreator'
         })
         .then((ret) => {
-            if (ret && !ret.is_public) {
+            if (ret && updatenotify.invite_link == ret.invite_link) {
+                throw 'errorNoChanges'
+            }
+            else if (ret && !ret.is_public && !msg.chat.username) {
                 updatenotify.title = ret.title;
                 return comlib.doEnrollment(updatenotify);
+            } else if (ret && !ret.is_public && msg.chat.username) {
+                throw 'errorPrivToPub';
             } else if (ret && ret.is_public && !msg.chat.username) {
                 updatenotify.title = ret.title;
-		updatenotify.is_public = false;
+                updatenotify.is_public = false;
                 bot.sendMessage(msg.chat.id, langres['infoPubToPrivDone']);
                 return comlib.doEnrollment(updatenotify);
             } else {
-                bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
+                throw 'errorNotIndexed'
             }
         }).then((ret) => {
             bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
         }).catch((e) => {
-            errorProcess(msg, bot, e);
+            var replymark = {reply_to_message_id: msg.message_id}
+            if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator'], replymark);
+            else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'], replymark);
+            else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges'], replymark);
+            else if (e == 'errorPrivToPub') bot.sendMessage(msg.chat.id, langres['errorPrivToPub'], replymark);
+            else errorProcess(msg, bot, e);
         }) // To be continued
     } else {
         bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
@@ -287,6 +300,8 @@ function updateInfo(msg, result, bot) {
             if (ret.username) {
                 updatenotify.username = ret.username;
                 updatenotify.is_public = true;
+            } else if (old_stat.is_public == true) {
+                throw 'errorPubToPriv'
             } else {
                 updatenotify.is_public = false;
             }
@@ -305,9 +320,11 @@ function updateInfo(msg, result, bot) {
                 bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
             }
         }).catch((e) => {
-            if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator']);
-            else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
-            else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges']);
+            var replymark = {reply_to_message_id: msg.message_id}
+            if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator'], replymark);
+            else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'], replymark);
+            else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges'], replymark);
+            else if (e == 'errorPubToPriv') bot.sendMessage(msg.chat.id, langres['errorPubToPriv'], replymark);
             else errorProcess(msg, bot, e);
         })
     } else {
@@ -495,6 +512,12 @@ function updateDesc(msg, result, bot) {
     }
 }
 
+function missingParameter(msg, result, bot) {
+    bot.sendMessage(msg.chat.id, '错误：指令缺少参数', {
+        reply_to_message_id: msg.message_id
+    });
+}
+
 module.exports = {
     init: (e) => {
         _e = e;
@@ -512,10 +535,13 @@ module.exports = {
         //[/^(http:\/\/telegra.ph\/.+)$/, processLink],
         [/^\/grouplink_update (https:\/\/telegram.me\/joinchat\/.+)$/, updatePrivateLink],
         [/^\/grouplink_update (https:\/\/t.me\/joinchat\/.+)$/, updatePrivateLink],
+        [/^\/grouplink_update$/, missingParameter],
         //[/^\/grouplink_update (http:\/\/telegra.ph\/.+)$/, updatePrivateLink],
         [/^\/update$/, updateInfo],
         [/^\/tag_update (.+)$/, updateTag],
+        [/^\/tag_update$/, missingParameter],
         [/^\/desc_update ((?:.|\n)+)/m, updateDesc],
+        [/^\/desc_update$/, missingParameter],
         [/^\/remove$/, enrollmentOptOut],
         ['text', processText]
     ]

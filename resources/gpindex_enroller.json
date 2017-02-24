@@ -24,5 +24,7 @@
     "errorNotIndexed": "抱歉，您的群组尚未进入索引，请私聊使用 /enroll 指令以提交索引。",
     "errorNotInGroup": "抱歉，该指令仅能在群组中执行。",
     "errorInvaildTag": "抱歉，该分类无效。有效分类为：\n%s",
+    "errorPubToPriv": "请先使用\n/grouplink_update 邀请链接\n更新群组链接。",
+    "errorPrivToPub": "对于公共群组，您只需使用 /update 指令即可更新当前状态。",
     "errorNoChanges": "抱歉，但您刚刚提交的更新请求中所述群组信息与数据库中信息完全相同，为防止垃圾请求影响系统的用户体验，系统已自动阻止该更新请求。"
 }
