@@ -51,7 +51,7 @@ function processText(msg, result, bot) {
                         outmsg[0] = '';
                         var head = 0;
                         recs.forEach((child) => {
-                            var link = 'https://t.me/' + _e.me.username + '?start=getdetail@' + child.id;
+                            var link = 'https://t.me/' + _e.me.username + '?start=getdetail=' + child.id;
                             var line, prefix;
                             //out += util.format('<a href="%s">%s</a>\n', link, he.encode(child.title));
                             if (child.type == 'group' || child.type == 'supergroup') {
@@ -109,7 +109,7 @@ function doSearch(msg, result, bot) {
                         outmsg[0] = '';
                         var head = 0;
                         recs.forEach((child) => {
-                            var link = 'https://t.me/' + _e.me.username + '?start=getdetail@' + child.id;
+                            var link = 'https://t.me/' + _e.me.username + '?start=getdetail=' + child.id;
                             var line, prefix;
                             //out += util.format('<a href="%s">%s</a>\n', link, he.encode(child.title));
                             if (child.type == 'group' || child.type == 'supergroup') {
@@ -227,7 +227,7 @@ module.exports = {
     run: [
         [/^\/list$/, getList],
         ['text', processText],
-        [/^\/start getdetail@([0-9-]{6,})/, getDetail],
+        [/^\/start getdetail=([0-9-]{6,})/, getDetail],
         [/^\/getdetail ([0-9-]{6,})/, getDetail],
         [/^\/mygroups$/, getMyGroups],
         [/^\/search (.+)$/, doSearch]

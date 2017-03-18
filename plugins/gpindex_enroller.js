@@ -4,6 +4,8 @@ const util = require('util');
 
 const admin_id = require('../config.json')['gpindex_admin'];
 
+var alt_bot = new (require('../libtelegrambot'))(require('../config.json')["api-key"])
+
 var langres = require('../resources/gpindex_enroller.json');
 var session = {};
 var _e, comlib;
@@ -50,7 +52,7 @@ function groupChosen(msg, result, bot){
             if (ret) {
                 throw 'errorAlreadyExist';
             } else {
-                return bot.getChatAdministrators(gid)
+                return alt_bot.getChatAdministrators(gid)
             }
         })
         .then((ret) => {
@@ -60,7 +62,7 @@ function groupChosen(msg, result, bot){
             });
             return isadmin;
         }).then((ret) => {
-            var cburl = util.format('https://telegram.me/%s?start=enroll@%d', _e.me.username, gid);
+            var cburl = util.format('https://telegram.me/%s?start=enroll=%d', _e.me.username, gid);
             if (ret) {
                 bot.sendMessage(gid, langres['promptGroupChosen'], {
                     reply_to_message_id: msg.message_id,
@@ -86,7 +88,7 @@ function groupSelected(msg, result, bot) {
         sid = msg.chat.id;
     if (session[uid] && session[uid].status == 'pending_enroll_pm' && uid == sid && gid < 0) {
         // do shit posting
-        bot.getChat(gid)
+        alt_bot.getChat(gid)
         .then((ret) => {
             processEnrollWaitTag(uid, ret, msg, bot);
             session[uid] = {status: 'enrolling', argu: gid};
@@ -239,7 +241,7 @@ function updatePrivateLink(msg, result, bot) {
             invite_link: result[1],
             is_update: true
         };
-        bot.getChatAdministrators(msg.chat.id)
+        alt_bot.getChatAdministrators(msg.chat.id)
         .then((ret) => {
             var isadmin = false;
             ret.forEach((child)=>{
@@ -288,7 +290,7 @@ function updateInfo(msg, result, bot) {
             old_stat = ret;
             if (ret) 
                 if (ret.creator != msg.from.id) throw 'errorNotCreator';
-                else return bot.getChat(msg.chat.id);
+                else return alt_bot.getChat(msg.chat.id);
             else throw 'errorNotIndexed';
         })
         .then((ret) => {
@@ -356,7 +358,7 @@ function enrollmentOptOut(msg, result, bot) {
                 else errorProcess(msg, bot, e);
             })
         } else {
-            bot.getChatAdministrators(msg.chat.id)
+            alt_bot.getChatAdministrators(msg.chat.id)
             .then((ret) => {
             var isadmin = false
                ret.forEach((child)=>{
@@ -419,7 +421,7 @@ function updateTag(msg, result, bot) {
                     if (ret.creator != msg.from.id) throw 'errorNotCreator';
                     else {
                         old_stat = ret
-                        return bot.getChat(msg.chat.id)
+                        return alt_bot.getChat(msg.chat.id)
                     }
                 else throw 'errorNotIndexed';
             })
@@ -472,7 +474,7 @@ function updateDesc(msg, result, bot) {
             old_stat = ret;
             if (ret) 
                 if (ret.creator != msg.from.id) throw 'errorNotCreator';
-                else return bot.getChat(msg.chat.id);
+                else return alt_bot.getChat(msg.chat.id);
             else throw 'errorNotIndexed';
         })
         .then((ret) => {
@@ -527,7 +529,7 @@ module.exports = {
         [/^\/enroll/, startEnrollment],
         [/^\/start grpselect$/, groupChosen],
         [/^\/start@.+ grpselect$/, groupChosen],
-        [/^\/start enroll@([0-9-]{6,})$/, groupSelected],
+        [/^\/start enroll=([0-9-]{6,})$/, groupSelected],
         [/^\/cancel$/, purgeState],
         ['callback_query', processCallbackButton],
         [/^(https:\/\/telegram.me\/joinchat\/.+)$/, processLink],

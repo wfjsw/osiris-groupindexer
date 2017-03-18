@@ -42,7 +42,7 @@ function initevents() {
     });
     context.on('new_private_commit', (groupinfo) => {
         // New Public Group
-        var link = 'https://t.me/' + _e.me.username + '?start=getdetail@' + groupinfo.id;
+        var link = 'https://t.me/' + _e.me.username + '?start=getdetail=' + groupinfo.id;
         var text = util.format(langres['newPrivate'], groupinfo.title, groupinfo.tag, groupinfo.desc, groupinfo.id);
         bot.sendMessage(channel_id, text, {
 		disable_web_page_preview: true,
@@ -56,7 +56,7 @@ function initevents() {
         // Private Group Updated
         _e.libs['gpindex_common'].getRecord(groupinfo.id)
         .then((ret) => {
-            var link = 'https://t.me/' + _e.me.username + '?start=getdetail@' + groupinfo.id;
+            var link = 'https://t.me/' + _e.me.username + '?start=getdetail=' + groupinfo.id;
             var text = util.format(langres['updatePrivate'], ret.title, ret.tag, ret.desc, ret.id);
             bot.sendMessage(channel_id, text, {
 		    disable_web_page_preview: true,

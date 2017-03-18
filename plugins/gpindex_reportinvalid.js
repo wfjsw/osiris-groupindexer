@@ -22,7 +22,7 @@ function processCallbackButton(msg, type, bot) {
                 if (ret.extag && ret.extag['noreport'])
                     throw 'ReportNotAllowed'
                 else
-                    return _e.bot.sendMessage(ADMIN_GROUP, util.format('User @%s (%s) (&s &s) has reported an invalid group link.\nData: %s', msg.from.username, msg.from.id, msg.from.first_name, msg.from.last_name, util.inspect(ret)))
+                    return _e.bot.sendMessage(ADMIN_GROUP, util.format('User @%s (%s) (%s %s) has reported an invalid group link.\nData: %s', msg.from.username, msg.from.id, msg.from.first_name, msg.from.last_name, util.inspect(ret)))
             } else 
                 throw 'GroupNotFound'
         })
@@ -37,7 +37,7 @@ function processCallbackButton(msg, type, bot) {
                 case 'GroupNotFound':
                     _e.bot.answerCallbackQuery(msg.id, '对不起，未找到您所报告的群组，该群组可能已从索引列表中被移除。', true);
                     break;
-                case 'ReportNotAllowed'
+                case 'ReportNotAllowed':
                     _e.bot.answerCallbackQuery(msg.id, '对不起，该群组已被标记为不可报告。', true);
                     break;
                 default: 

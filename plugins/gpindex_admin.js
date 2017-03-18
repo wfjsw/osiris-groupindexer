@@ -5,6 +5,8 @@ const channel_id = require('../config.json')['gpindex_channel'];
 const util = require('util');
 const moment = require('moment');
 
+var alt_bot = new (require('../libtelegrambot'))(require('../config.json')["api-key"])
+
 var _e, comlib;
 
 function writeMenu(msg, result, bot) {
@@ -68,7 +70,7 @@ function doImportPublicGroup(msg, result, bot) {
     var ginfo;
     if (msg.chat.id == admin_id)
     if (gname && tag && desc)
-        bot.getChat(gname)
+        alt_bot.getChat(gname)
         .then((ret) => {
             ginfo = ret;
             return comlib.getRecord(ret.id)
@@ -77,7 +79,7 @@ function doImportPublicGroup(msg, result, bot) {
             if (ret) {
                 throw {err: 'errorAlreadyExist'};
             } else {
-                return bot.getChatAdministrators(ginfo.id)
+                return alt_bot.getChatAdministrators(ginfo.id)
             }
         }).then((ret) => {
             ret.forEach((child)=> {
@@ -133,7 +135,7 @@ function doRemoveFeedByID(msg, result, bot) {
 
 function getChat(msg, result, bot){
     if (msg.chat.id == admin_id)
-        bot.getChat(parseInt(result[1]))
+        alt_bot.getChat(parseInt(result[1]))
         .then((ret) => {
             bot.sendMessage(msg.chat.id, util.inspect(ret));
         })
@@ -144,7 +146,7 @@ function getChat(msg, result, bot){
 
 function doForceUpdate(msg, result, bot) {
     if (msg.chat.id == admin_id)
-        bot.getChat(parseInt(result[1]))
+        alt_bot.getChat(parseInt(result[1]))
         .then((ret) => {
             var updation = {
                 title: ret.title

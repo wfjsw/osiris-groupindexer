@@ -4,6 +4,9 @@
 const VALIDATION_GROUP = require('../config.json')['gpindex_admin'];
 
 const util = require('util');
+
+var alt_bot = new (require('../libtelegrambot'))(require('../config.json')["api-key"])
+
 var _e;
 var session = {};
 
@@ -40,7 +43,7 @@ function init() {
 }
 
 function processOptOut(chatid) {
-	_e.bot.getChat(chatid)
+	alt_bot.getChat(chatid)
 	.then((info) => {
 	    _e.bot.sendMessage(VALIDATION_GROUP, 'Proceed Removal\n' + util.inspect(info))
 	})
