@@ -27,11 +27,18 @@ function errorProcess(msg, bot, err) {
 function startEnrollment(msg, result, bot){
     // Check state
     if (!session[msg.from.id] && msg.chat.id > 0) {
-        // Prompt user to choose group
-        var cburl = util.format('https://telegram.me/%s?startgroup=%s', _e.me.username, 'grpselect');
-        bot.sendMessage(msg.from.id, langres['promptChooseGroup'], {
-            reply_to_message_id: msg.message_id,
-            reply_markup: {inline_keyboard:[[{ text: langres['buttonChooseGroup'], url: cburl }]]}
+        comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
+        .then((ret) => {
+            // Prompt user to choose group
+            if (!ret) {
+                var cburl = util.format('https://telegram.me/%s?startgroup=%s', _e.me.username, 'grpselect');
+                return bot.sendMessage(msg.from.id, langres['promptChooseGroup'], {
+                    reply_to_message_id: msg.message_id,
+                    reply_markup: {inline_keyboard:[[{ text: langres['buttonChooseGroup'], url: cburl }]]}
+                })
+            } else {
+                return bot.sendMessage(msg.chat.id, langres['errorUserBanned']);
+            }
         }).catch((err) => {
             errorProcess(msg, bot, err)
         })
@@ -515,9 +522,11 @@ function updateDesc(msg, result, bot) {
 }
 
 function missingParameter(msg, result, bot) {
-    bot.sendMessage(msg.chat.id, '错误：指令缺少参数', {
-        reply_to_message_id: msg.message_id
-    });
+    if (msg.chat.id < 0){
+        bot.sendMessage(msg.chat.id, '请在指令后面跟上要更新的内容，例如链接、标签或简介', {
+            reply_to_message_id: msg.message_id
+        });
+    }
 }
 
 module.exports = {

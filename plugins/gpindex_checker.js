@@ -14,22 +14,22 @@ function sendValidateRequest(groupinfo) {
     if (!groupinfo.is_update) {
         var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s\nTag: %s\nCreator: %s\nDesc: %s\n', groupinfo.id, groupinfo.title, groupinfo.invite_link, groupinfo.tag, groupinfo.creator, groupinfo.desc);
         _e.bot.sendMessage(VALIDATION_GROUP, req, {
-            reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
+            reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Silent', callback_data: 'silent-pass:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
         }).then((msg) => {
-            session[groupinfo.id] = groupinfo;
+            session[groupinfo.id] = Object.assign(session[groupinfo.id], groupinfo)
         }).catch((e) => {
             _e.bot.sendMessage(VALIDATION_GROUP, 'Err: \n' + util.inspect(e));
         });
     } else {
         _e.libs['gpindex_common'].getRecord(groupinfo.id)
         .then((ret) => {
-            var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s\nTag: %sCreator: %s\nDesc: %s\n\nUpdation: ', ret.id, ret.title, ret.invite_link, ret.tag, ret.creator, ret.desc, util.inspect(groupinfo));
+            var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s\nTag: %s\nCreator: %s\nDesc: %s\n\nUpdation: ', ret.id, ret.title, ret.invite_link, ret.tag, ret.creator, ret.desc, util.inspect(Object.assign(session[groupinfo.id], groupinfo)));
             _e.bot.sendMessage(VALIDATION_GROUP, req, {
-                reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
+                reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Silent', callback_data: 'silent-pass:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
             })
         })
         .then((msg) => {
-            session[groupinfo.id] = groupinfo;
+            session[groupinfo.id] = Object.assign(session[groupinfo.id], groupinfo)
         }).catch((e) => {
             _e.bot.sendMessage(VALIDATION_GROUP, 'Err: \n' + util.inspect(e));
         });
@@ -59,10 +59,26 @@ function processCallbackButton(msg, type, bot) {
     if (session[gid]) {
         switch (operator) {
             case 'validate':
+                var is_silent = false
                 var is_update = session[gid].is_update;
                 var creator = session[gid].creator;
                 delete session[gid];
-                _e.libs['gpindex_common'].doValidate(gid, is_update);
+                _e.libs['gpindex_common'].doValidate(gid, is_update, is_silent);
+                bot.answerCallbackQuery(msg.id, 'Validated!');
+                bot.editMessageText('Validated by ' + msg.from.first_name + ' ' + msg.from.last_name, {
+                    chat_id: msg.message.chat.id,
+                    message_id: msg.message.message_id 
+                });
+                if (is_update) bot.sendMessage(gid, "您的群组信息已通过验证。")
+                else bot.sendMessage(creator, "您的群组信息已通过验证。");
+                // send response, notify creator
+                break;
+            case 'silent-pass':
+                var is_silent = true
+                var is_update = session[gid].is_update;
+                var creator = session[gid].creator;
+                delete session[gid];
+                _e.libs['gpindex_common'].doValidate(gid, is_update, is_silent);
                 bot.answerCallbackQuery(msg.id, 'Validated!');
                 bot.editMessageText('Validated by ' + msg.from.first_name + ' ' + msg.from.last_name, {
                     chat_id: msg.message.chat.id,

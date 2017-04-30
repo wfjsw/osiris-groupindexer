@@ -21,10 +21,21 @@ function removeItem(msg, result, bot) {
     if (msg.chat.id == admin_id)
         comlib.doRemoval(result[1])
         .then((ret) => {
-            bot.sendMessage(msg.chat.id, 'Success');
+            bot.sendMessage(msg.chat.id, util.inspect(ret));
         })
         .catch((e) => {
-            bot.sendMessage(msg.chat.id, 'Failed\n\n' + util.inspect(e));
+            bot.sendMessage(msg.chat.id, util.inspect(e));
+        })
+}
+
+function sendMsg(msg, result, bot) {
+    if (msg.chat.id == admin_id)
+        _e.bot.sendMessage(parseInt(result[1]), result[2])
+        .then((ret) => {
+            bot.sendMessage(msg.chat.id, util.inspect(ret));
+        })
+        .catch((e) => {
+            bot.sendMessage(msg.chat.id, util.inspect(e));
         })
 }
 
@@ -237,6 +248,7 @@ module.exports = {
         [/^\/getflag ([0-9-]{6,}) ([^\s]+)$/, getUserFlag],
         [/^\/setflag ([0-9-]{6,}) ([^\s]+) ([^\s]+)$/, setUserFlag],
         [/^\/getextag ([0-9-]{6,}) ([^\s]+)$/, getGroupExTag],
-        [/^\/setextag ([0-9-]{6,}) ([^\s]+) ([^\s]+)$/, setGroupExTag]
+        [/^\/setextag ([0-9-]{6,}) ([^\s]+) ([^\s]+)$/, setGroupExTag],
+        [/^\/sendmsg ([0-9-]{6,}) ((?:.|\n)+)/m, sendMsg]
     ]
 }

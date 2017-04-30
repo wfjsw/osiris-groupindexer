@@ -1,1 +1,1 @@
-npm install rethinkdb he moment --save
+npm install rethinkdb he moment express body-parser --save
