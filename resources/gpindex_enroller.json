@@ -13,6 +13,7 @@
     "infoMalState": "出现了一些问题，请先重置会话。 /cancel",
     "infoSessionCleared": "您的会话状态已清空。",
     "infoBugReport": "发生了一些错误。您的会话已被重置，且错误已被自动报告到管理员。请等一会重试或到反馈群组反馈。",
+    "infoUseInPrivate": "该指令仅可私聊使用。",
     "infoPubDone": "您的请求已提交。请耐心等待数据库更新。",
     "infoPrivDone": "您的请求已提交。请等待管理员验证邀请链接有效性。",
     "infoPubToPrivDone": "截至目前，您已完成从公共群转私有群所必需的输入操作。",

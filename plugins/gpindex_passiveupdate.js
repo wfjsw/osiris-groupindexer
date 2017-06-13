@@ -1,5 +1,5 @@
 'use strict'; 
-var _e;
+var _e, _ga
 
 const ADMIN_GROUP = require('../config.json')['gpindex_admin'];
 
@@ -18,8 +18,11 @@ function passiveUpdate(msg, bot) {
                 updatable = true
             }
             if (updatable == true) return _e.libs['gpindex_common'].silentUpdate(gid, updation);
+        }).then((ret) => {
+            _ga.tEvent(gid, 'passiveUpdate', 'updated')
         }).catch((e) => {
-            // Forget it
+            console.error(e)
+            _ga.tException(gid, e.description, false)
         })
     }
 }
@@ -27,6 +30,7 @@ function passiveUpdate(msg, bot) {
 module.exports = {
     init: (e) => {
         _e = e;
+        _ga = e.libs['ga'];
     },
     preprocess: passiveUpdate
 }

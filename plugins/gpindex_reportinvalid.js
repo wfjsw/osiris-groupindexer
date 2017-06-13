@@ -2,7 +2,7 @@
 
 const ADMIN_GROUP = require('../config.json')['gpindex_admin'];
 
-var _e, comlib;
+var _e, comlib, _ga;
 
 var util = require('util');
 
@@ -28,23 +28,28 @@ function processCallbackButton(msg, type, bot) {
         })
         .then((ret) => {
             _e.bot.answerCallbackQuery(msg.id, '感谢您的帮助，我们将尽快修复失效链接。', true);
+            //_ga.tEvent(msg.from.id, 'reportInvalid', 'doReport', 'ok')
         })
         .catch((e) => {
             switch (e) {
                 case 'UserBlocked':
                     _e.bot.answerCallbackQuery(msg.id, '对不起，您已被禁止使用此功能。', true);
+                    //_ga.tEvent(msg.from.id, 'blockedUserAttempt', 'reportInvalid')
                     break;
                 case 'GroupNotFound':
                     _e.bot.answerCallbackQuery(msg.id, '对不起，未找到您所报告的群组，该群组可能已从索引列表中被移除。', true);
+                    //_ga.tEvent(msg.from.id, 'reportInvalid', 'doReport', 'groupNotFound')
                     break;
                 case 'ReportNotAllowed':
                     _e.bot.answerCallbackQuery(msg.id, '对不起，该群组已被标记为不可报告。', true);
+                    //_ga.tEvent(msg.from.id, 'reportInvalid', 'doReport', 'notAllowed')
                     break;
                 default: 
                 _e.bot.sendMessage(ADMIN_GROUP, '```'+util.inspect(e)+'```', {
                     parse_mode: 'Markdown'
                 })
                 _e.bot.answerCallbackQuery(msg.id, '对不起，出现了一些问题，请稍后再试。', true);
+                //_ga.tException(msg.from.id, e.description, false)
             }
         })
     }
@@ -54,6 +59,7 @@ module.exports = {
     init: (e) => {
         _e = e
         comlib = e.libs['gpindex_common']
+        _ga = e.libs['ga']
     },
     run: [
         ['callback_query', processCallbackButton]

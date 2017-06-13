@@ -26,7 +26,8 @@ function errorProcess(msg, bot, err) {
 
 function startEnrollment(msg, result, bot){
     // Check state
-    if (!session[msg.from.id] && msg.chat.id > 0) {
+    if (!session[msg.from.id]) {
+      if (msg.chat.id > 0) {
         comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
         .then((ret) => {
             // Prompt user to choose group
@@ -42,8 +43,15 @@ function startEnrollment(msg, result, bot){
         }).catch((err) => {
             errorProcess(msg, bot, err)
         })
+      } else {
+          bot.sendMessage(msg.from.id, langres['infoUseInPrivate'], {
+            reply_to_message_id: msg.message_id
+          })
+      }
     } else {
-        bot.sendMessage(msg.from.id, langres['infoBusyState'])
+        bot.sendMessage(msg.from.id, langres['infoBusyState'], {
+            reply_to_message_id: msg.message_id
+        })
     }
     
 }
@@ -304,11 +312,14 @@ function updateInfo(msg, result, bot) {
             var updatenotify = {
                 id: ret.id,
                 title: ret.title,
-                is_update: true    
+                is_update: true
             };
             if (ret.username) {
                 updatenotify.username = ret.username;
                 updatenotify.is_public = true;
+                if (old_stat.extag) {
+                    updatenotify.is_silent = old_stat.extag['silent'] || 0
+                }
             } else if (old_stat.is_public == true) {
                 throw 'errorPubToPriv'
             } else {

@@ -1,1 +1,1 @@
-npm install rethinkdb he moment express body-parser --save
+npm install rethinkdb he moment express body-parser request request-promise-native uuid-1345 --save

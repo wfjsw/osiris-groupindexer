@@ -6,7 +6,7 @@ const tags = require('../config.json')['gpindex_tags']
 const langres = require('../resources/gpindex_listing.json');
 const admin_id = require('../config.json')['gpindex_admin'];
 
-var _e, comlib;
+var _e, comlib, _ga;
 
 // TODO
 function getList(msg, result, bot) {
@@ -14,6 +14,7 @@ function getList(msg, result, bot) {
         comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
         .then((ret) => {
             if (!ret) {
+                _ga.tEvent(msg.from.id, 'listing', 'listTags', msg.text)
                 var row = [], i = 0;
                 var col = [];
                 tags.forEach((child) => {
@@ -33,6 +34,7 @@ function getList(msg, result, bot) {
                 })
             } else {
                 bot.sendMessage(msg.chat.id, langres['errorUserBanned']);
+                _ga.tEvent(msg.from.id, 'listing', 'blockedUserAttempt', 'listTags')
             }
         })
     }
@@ -43,6 +45,7 @@ function processText(msg, result, bot) {
         if (tags.indexOf(msg.text) > -1) {
             comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
             .then((ret) => {
+                _ga.tEvent(msg.from.id, 'listing', 'listGroups', msg.text)
                 if (!ret) {
                     comlib.getRecByTag(msg.text)
                     .then((recs) => {
@@ -85,11 +88,13 @@ function processText(msg, result, bot) {
                                 bot.sendMessage(admin_id, errorlog, {
                                     parse_mode: 'Markdown'
                                 });
+                                _ga.tException(msg.from.id, e.description, false)
                             })
                         }
                     })
                 } else {
                     bot.sendMessage(msg.chat.id, langres['errorUserBanned']);
+                    _ga.tEvent(msg.from.id, 'listing', 'blockedUserAttempt', 'listGroups')
                 }
             });
         }
@@ -101,6 +106,7 @@ function doSearch(msg, result, bot) {
         comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
         .then((ret) => {
             if (!ret) {
+                _ga.tEvent(msg.from.id, 'listing', 'doSearch', result[1])
                 comlib.searchByName(result[1])
                 .then((recs) => {
                     if(recs.length > 0) {
@@ -126,10 +132,10 @@ function doSearch(msg, result, bot) {
                             if (child.is_public) line = prefix + util.format(' <a href="https://t.me/%s">%s</a> (<a href="%s">详情</a>)\n', child.username, he.encode(child.title), link);
                                 else line = prefix + util.format(' <a href="%s">%s</a> (<a href="%s">详情</a>)\n', child.invite_link, he.encode(child.title), link);
                             head++;
-                            if (head <= 40) outmsg[outmsg.length - 1] += line;
+                            if (head <= 20) outmsg[outmsg.length - 1] += line;
                                 else {
-                                outmsg[outmsg.length] = line;
-                                head = 1;
+                                    outmsg[outmsg.length] = line;
+                                    head = 1;
                                 }
                         })
                         for (var i=0; i<outmsg.length; i++) {
@@ -143,16 +149,20 @@ function doSearch(msg, result, bot) {
                                 bot.sendMessage(admin_id, errorlog, {
                                     parse_mode: 'Markdown'
                                 });
+                                _ga.tException(msg.from.id, e.description, false)
                             })
                         }
+                        _ga.tEvent(msg.from.id, 'listing', 'doSearchMatch', result[1], recs.length)
                     } else {
                         bot.sendMessage(msg.chat.id, langres['errorNoSearchMatchCriteria'], {
                             reply_to_message_id: msg.message_id
                         });
+                        _ga.tEvent(msg.from.id, 'listing', 'doSearchNoMatch', result[1])
                     }
                 })
             } else {
                 bot.sendMessage(msg.chat.id, langres['errorUserBanned']);
+                _ga.tEvent(msg.from.id, 'listing', 'blockedUserAttempt', 'doSearch')
             }
         });
     }
@@ -167,6 +177,7 @@ function getDetail(msg, result, bot) {
                 if (!ret) {
                     bot.sendMessage(msg.chat.id, langres['errorGroupNotExist']);
                 } else {
+                    _ga.tEvent(msg.from.id, 'listing', 'getGroupDetail', ret.id)
                     if (ret.is_public) 
                         if (ret.type == "channel") {
                             bot.sendMessage(msg.chat.id, util.format(langres['infoPubChan'], ret.id, ret.title, ret.username, ret.tag, ret.desc), {
@@ -191,38 +202,78 @@ function getDetail(msg, result, bot) {
                 bot.sendMessage(admin_id, errorlog, {
                     parse_mode: 'Markdown'
                 });
+                _ga.tException(msg.from.id, e.description, false)
             })
         } else {
             bot.sendMessage(msg.chat.id, langres['errorUserBanned']);
+            _ga.tEvent(msg.from.id, 'listing', 'blockedUserAttempt', 'getGroupDetail')
         }
     });
 }
 
 function getMyGroups(msg, result, bot) {
-    if (msg.chat.id > 0)
-    comlib.getRecByCreator(msg.from.id)
-    .then((recs) => {
-        var out = '';
-	if (recs)
-        recs.forEach((rec) => {
-            var line;
-            line = rec.id;
-            line += ' - ';
-            line += rec.title + ` (#${rec.tag}): \n`;
-            line += rec.is_public ? '@'+rec.username : rec.invite_link;
-            out += line + '\n\n';
-        });
-	else out = 'No Groups.'
-        bot.sendMessage(msg.chat.id, out, {
-            reply_to_mesaage_id: msg.message_id
-        });
-    });
+    if (msg.chat.id > 0) {
+        _ga.tEvent(msg.from.id, 'listing', 'getMyGroups')
+        comlib.getRecByCreator(msg.from.id)
+        .then((recs) => {
+            var out = '';
+            if (recs)
+                recs.forEach((rec) => {
+                    var line;
+                    line = rec.id;
+                    line += ' - ';
+                    line += rec.title + ` (#${rec.tag}): \n`;
+                    line += rec.is_public ? '@'+rec.username : rec.invite_link;
+                    out += line + '\n\n';
+                });
+            else out = 'No Groups.'
+            return bot.sendMessage(msg.chat.id, out, {
+                reply_to_mesaage_id: msg.message_id
+            });
+        }).catch((e) => {
+            _ga.tException(msg.from.id, e.description, false)
+        })
+    }
 }
 
+function processCallbackButton(msg, type, bot) {
+    var operator = msg.data.split(':')[0];
+    var param = msg.data.split(':')[1];
+    switch (operator) {
+        case 'join':
+            //callbackJoin(parseInt(param), msg, bot)
+            break;
+    }
+}
+/*
+function callbackJoin(gid, msg, bot) {
+    comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
+        .then((ret) => {
+            if (!ret) {
+                comlib.getRecord(gid)
+                    .then((ret) => {
+                        if (ret) {
+                            bot.answerCallbackQuery(msg.id, 'Redirecting...', false, {
+                                url: ret.invite_link
+                            })
+                            _ga.tEvent(msg.from.id, 'listing', 'joinGroup', 'byButton')
+                        } else {
+                            bot.answerCallbackQuery(msg.id, langres['errorGroupNotExist'], true);
+                            _ga.tEvent(msg.from.id, 'listing', 'joinGroup', 'notFound')
+                        }
+                    })
+            } else {
+                bot.answerCallbackQuery(msg.id, '对不起，您已被禁止使用此功能。', true);
+                _ga.tEvent(msg.from.id, 'listing', 'joinGroup', 'byButton')
+            }
+        })
+}
+*/
 module.exports = {
     init: (e) => {
         _e = e;
         comlib = _e.libs['gpindex_common'];
+        _ga = e.libs['ga'];
     },
     run: [
         [/^\/list$/, getList],
@@ -230,6 +281,7 @@ module.exports = {
         [/^\/start getdetail=([0-9-]{6,})/, getDetail],
         [/^\/getdetail ([0-9-]{6,})/, getDetail],
         [/^\/mygroups$/, getMyGroups],
-        [/^\/search (.+)$/, doSearch]
+        [/^\/search (.+)$/, doSearch],
+        ['callback_query', processCallbackButton]
     ]
 }

@@ -16,20 +16,20 @@ function sendValidateRequest(groupinfo) {
         _e.bot.sendMessage(VALIDATION_GROUP, req, {
             reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Silent', callback_data: 'silent-pass:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
         }).then((msg) => {
-            session[groupinfo.id] = Object.assign(session[groupinfo.id], groupinfo)
+            session[groupinfo.id] = groupinfo
         }).catch((e) => {
             _e.bot.sendMessage(VALIDATION_GROUP, 'Err: \n' + util.inspect(e));
         });
     } else {
         _e.libs['gpindex_common'].getRecord(groupinfo.id)
         .then((ret) => {
-            var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s\nTag: %s\nCreator: %s\nDesc: %s\n\nUpdation: ', ret.id, ret.title, ret.invite_link, ret.tag, ret.creator, ret.desc, util.inspect(Object.assign(session[groupinfo.id], groupinfo)));
+            var req = util.format('Please validate the following link: \nGroup ID: %s\nGroup Title: %s\nInvite Link: %s\nTag: %s\nCreator: %s\nDesc: %s\n\nUpdation: ', ret.id, ret.title, ret.invite_link, ret.tag, ret.creator, ret.desc, util.inspect(Object.assign(session[groupinfo.id] | {}, groupinfo)));
             _e.bot.sendMessage(VALIDATION_GROUP, req, {
                 reply_markup: {inline_keyboard:[[{text: 'Validate', callback_data: 'validate:' + groupinfo.id}, {text: 'Silent', callback_data: 'silent-pass:' + groupinfo.id}, {text: 'Reject', callback_data: 'reject:' + groupinfo.id}]]} // TODO
             })
         })
         .then((msg) => {
-            session[groupinfo.id] = Object.assign(session[groupinfo.id], groupinfo)
+            session[groupinfo.id] = Object.assign(session[groupinfo.id] | {}, groupinfo)
         }).catch((e) => {
             _e.bot.sendMessage(VALIDATION_GROUP, 'Err: \n' + util.inspect(e));
         });
@@ -55,8 +55,7 @@ function processOptOut(chatid) {
 function processCallbackButton(msg, type, bot) {
     var operator = msg.data.split(':')[0];
     var gid = msg.data.split(':')[1];
-    if (operator == 'validate' || operator == 'reject')
-    if (session[gid]) {
+    if (session[gid] && (operator == 'validate' || operator == 'silent-pass' || operator == 'reject') ) {
         switch (operator) {
             case 'validate':
                 var is_silent = false
@@ -101,7 +100,7 @@ function processCallbackButton(msg, type, bot) {
                 else bot.sendMessage(creator, "您的群组信息未通过验证。请重试。");
                 // notify creator
         }
-    } else {
+    } else if (operator == 'validate' || operator == 'silent-pass' || operator == 'reject') {
         bot.answerCallbackQuery(msg.id, 'Session Outdated!');
     }
 }
