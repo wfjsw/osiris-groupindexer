@@ -3,7 +3,7 @@
 const util = require('util');
 const langres = require('../resources/gpindex_publisher.json');
 
-const admin_id = require('../config.json')['gpindex_admin'];
+const admin_id = require('../config.gpindex.json')['gpindex_admin'];
 
 var _e, bot;
 
@@ -20,20 +20,20 @@ function initevents() {
     });
     context.on('update_public_data', (groupinfo) => {
         _e.libs['gpindex_common'].getRecord(groupinfo.id)
-        .then((ret) => {
-            return bot.sendMessage(admin_id, util.inspect(ret), {
-                disable_web_page_preview: true
-            });
-        })
-        .catch((e) => {
-            bot.sendMessage(admin_id, e);
-            console.error(e);
-        })
+            .then((ret) => {
+                return bot.sendMessage(admin_id, util.inspect(ret), {
+                    disable_web_page_preview: true
+                });
+            })
+            .catch((e) => {
+                bot.sendMessage(admin_id, e);
+                console.error(e);
+            })
     });
     context.on('new_private_commit', (groupinfo) => {
-        bot.sendMessage(admin, util.inspect(groupinfo), {
-		disable_web_page_preview: true
-        }).catch((e)=>{
+        bot.sendMessage(admin_id, util.inspect(groupinfo), {
+            disable_web_page_preview: true
+        }).catch((e) => {
             bot.sendMessage(admin_id, e);
             console.error(e);
         })
@@ -41,15 +41,15 @@ function initevents() {
     context.on('update_private_data', (groupinfo) => {
         // Private Group Updated
         _e.libs['gpindex_common'].getRecord(groupinfo.id)
-        .then((ret) => {
-            bot.sendMessage(channel_id, util.inspect(ret), {
-		    disable_web_page_preview: true
-            });
-        })
-        .catch((e) => {
-            bot.sendMessage(admin_id, e);
-            console.error(e);
-        })
+            .then((ret) => {
+                bot.sendMessage(admin_id, util.inspect(ret), {
+                    disable_web_page_preview: true
+                });
+            })
+            .catch((e) => {
+                bot.sendMessage(admin_id, e);
+                console.error(e);
+            })
     });
 }
 

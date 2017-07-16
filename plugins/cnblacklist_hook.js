@@ -1,7 +1,7 @@
 'use strict';
 
 var _e, comlib
-const admin_id = require('../config.json')['gpindex_admin'];
+const admin_id = require('../config.gpindex.json')['gpindex_admin'];
 const util = require('util')
 const express = require('express')
 var bodyParser = require('body-parser')

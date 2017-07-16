@@ -1,6 +1,6 @@
 'use strict';
 
-const ADMIN_GROUP = require('../config.json')['gpindex_admin'];
+const ADMIN_GROUP = require('../config.gpindex.json')['gpindex_admin'];
 
 var _e, comlib, _ga;
 

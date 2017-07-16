@@ -1,7 +1,7 @@
 'use strict';
 
-const admin_id = require('../config.json')['gpindex_admin'];
-const channel_id = require('../config.json')['gpindex_channel'];
+const admin_id = require('../config.gpindex.json')['gpindex_admin']
+const channel_id = require('../config.gpindex.json')['gpindex_channel']
 const util = require('util');
 const moment = require('moment');
 
@@ -81,7 +81,7 @@ function doImportPublicGroup(msg, result, bot) {
     var ginfo;
     if (msg.chat.id == admin_id)
     if (gname && tag && desc)
-        alt_bot.getChat(gname)
+        _e.bot.getChat(gname)
         .then((ret) => {
             ginfo = ret;
             return comlib.getRecord(ret.id)
@@ -90,7 +90,7 @@ function doImportPublicGroup(msg, result, bot) {
             if (ret) {
                 throw {err: 'errorAlreadyExist'};
             } else {
-                return alt_bot.getChatAdministrators(ginfo.id)
+                return _e.bot.getChatAdministrators(ginfo.id)
             }
         }).then((ret) => {
             ret.forEach((child)=> {
@@ -146,7 +146,7 @@ function doRemoveFeedByID(msg, result, bot) {
 
 function getChat(msg, result, bot){
     if (msg.chat.id == admin_id)
-        alt_bot.getChat(parseInt(result[1]))
+        _e.bot.getChat(parseInt(result[1]))
         .then((ret) => {
             bot.sendMessage(msg.chat.id, util.inspect(ret));
         })
@@ -157,7 +157,7 @@ function getChat(msg, result, bot){
 
 function doForceUpdate(msg, result, bot) {
     if (msg.chat.id == admin_id)
-        alt_bot.getChat(parseInt(result[1]))
+        _e.bot.getChat(parseInt(result[1]))
         .then((ret) => {
             var updation = {
                 title: ret.title

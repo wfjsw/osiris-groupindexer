@@ -1,11 +1,9 @@
 'use strict';
 
 // Hardcode part
-const VALIDATION_GROUP = require('../config.json')['gpindex_admin'];
+const VALIDATION_GROUP = require('../config.gpindex.json')['gpindex_admin'];
 
 const util = require('util');
-
-var alt_bot = new (require('../libtelegrambot'))(require('../config.json')["api-key"])
 
 var _e;
 var session = {};
@@ -43,7 +41,7 @@ function init() {
 }
 
 function processOptOut(chatid) {
-	alt_bot.getChat(chatid)
+	_e.bot.getChat(chatid)
 	.then((info) => {
 	    _e.bot.sendMessage(VALIDATION_GROUP, 'Proceed Removal\n' + util.inspect(info))
 	})

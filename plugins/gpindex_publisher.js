@@ -3,8 +3,8 @@
 const util = require('util');
 const langres = require('../resources/gpindex_publisher.json');
 
-const channel_id = require('../config.json')['gpindex_channel'];
-const admin_id = require('../config.json')['gpindex_admin'];
+const channel_id = require('../config.gpindex.json')['gpindex_channel'];
+const admin_id = require('../config.gpindex.json')['gpindex_admin'];
 
 var _e;
 
@@ -14,11 +14,12 @@ function initevents() {
     context.on('new_public_commit', (groupinfo) => {
         // New Public Group
         var text;
+        var link = 'https://t.me/' + _e.me.username + '?start=getdetail=' + groupinfo.id;
         if (groupinfo.type == 'channel') text = util.format(langres['newPublicChan'], groupinfo.title, groupinfo.username, groupinfo.tag, groupinfo.desc, groupinfo.id);
         else text = util.format(langres['newPublic'], groupinfo.title, groupinfo.username, groupinfo.tag, groupinfo.desc, groupinfo.id);
         bot.sendMessage(channel_id, text, {
             disable_web_page_preview: true,
-            reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: 'https://t.me/' + groupinfo.username}]]}
+            reply_markup: {inline_keyboard:[[{text: langres['buttonJoin'], url: 'https://t.me/' + groupinfo.username}, { text: langres['buttonDetail'], url: link }]]}
         }).catch((e) => {
             console.error(e);
             bot.sendMessage(admin_id, e);
@@ -29,11 +30,11 @@ function initevents() {
         .then((ret) => {
             var text;
             var link = 'https://t.me/' + _e.me.username + '?start=getdetail=' + ret.id;
-            if (groupinfo.type == 'channel') text = util.format(langres['updatePublicChan'], ret.title, ret.username, ret.tag, ret.desc, ret.id);
+            if (groupinfo.type == 'channel') text = util.format(langres['updatePublicChan'], ret.title, ret.username, ret.tag, ret.desc, ret.id)
             else text = util.format(langres['updatePublic'], ret.title, ret.username, ret.tag, ret.desc, ret.id);
             return bot.sendMessage(channel_id, text, {
                 disable_web_page_preview: true,
-                reply_markup: { inline_keyboard: [[{ text: langres['buttonJoin'], url: 'https://t.me/' + ret.username }, { text: langres['buttonDetail'], url: 'https://t.me/' + link }]]}
+                reply_markup: { inline_keyboard: [[{ text: langres['buttonJoin'], url: 'https://t.me/' + ret.username }, { text: langres['buttonDetail'], url: link }]]}
             });
         })
         .catch((e) => {

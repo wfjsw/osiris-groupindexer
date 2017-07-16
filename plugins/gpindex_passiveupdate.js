@@ -8,18 +8,19 @@ function passiveUpdate(msg, bot) {
         var gid = msg.chat.id
         _e.libs['gpindex_common'].getRecord(gid)
         .then((ret) => {
-            var updation, updatable;
+            var updation = {}, 
+                updatable = false;
             if (ret && ret.title != msg.chat.title) {
                 updation.title = msg.chat.title;
                 updatable = true;
             }
-            if (ret && ret.username && ret.username != msg.chat.username) {
+            if (ret && ret.username && msg.chat.username && ret.username != msg.chat.username) {
                 updation.username = msg.chat.username;
                 updatable = true
             }
             if (updatable == true) return _e.libs['gpindex_common'].silentUpdate(gid, updation);
         }).then((ret) => {
-            _ga.tEvent(gid, 'passiveUpdate', 'updated')
+            // _ga.tEvent(gid, 'passiveUpdate', 'updated')
         }).catch((e) => {
             console.error(e)
             _ga.tException(gid, e.description, false)
