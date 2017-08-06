@@ -1,5 +1,3 @@
-'use strict';
-
 const util = require('util');
 
 const admin_id = require('../config.gpindex.json')['gpindex_admin'];
@@ -9,10 +7,9 @@ var session = {};
 var _e, comlib;
 var tags = require('../config.gpindex.json')['gpindex_tags'];
 
-
 function errorProcess(msg, bot, err) {
     if (err == 'notValidated') return
-    var errorlog = '```\n' + util.inspect(err) + '```\n';
+    var errorlog = '```\n' + err.stack + '```\n';
     console.error(err);
     bot.sendMessage(msg.chat.id, langres['infoBugReport'], {
         reply_to_message_id: msg.message_id
@@ -23,108 +20,114 @@ function errorProcess(msg, bot, err) {
     purgeState(msg, 'errrpt', bot);
 }
 
-function startEnrollment(msg, result, bot){
+async function startEnrollment(msg, result, bot) {
     // Check state
     if (!session[msg.from.id]) {
-      if (msg.chat.id > 0) {
-        comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
-        .then(ret => {
-            if (ret) {
-                return comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-            } else {
-                throw 'notValidated'
+        if (msg.chat.id > 0) {
+            try {
+                const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
+                const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
+                if (is_validated) {
+                    if (!is_blocked) {
+                        var cburl = `https://telegram.me/${_e.me.username}?startgroup=grpselect`
+                        return await bot.sendMessage(msg.from.id, langres['promptChooseGroup'], {
+                            reply_to_message_id: msg.message_id,
+                            reply_markup: {
+                                inline_keyboard: [
+                                    [{
+                                        text: langres['buttonChooseGroup'],
+                                        url: cburl
+                                    }]
+                                ]
+                            }
+                        })
+                    } else {
+                        return await bot.sendMessage(msg.chat.id, langres['errorUserBanned']);
+                    }
+                }
+            } catch (e) {
+                return errorProcess(msg, bot, e)
             }
-        })
-        .then(ret => {
-            // Prompt user to choose group
-            if (!ret) {
-                var cburl = util.format('https://telegram.me/%s?startgroup=%s', _e.me.username, 'grpselect');
-                return bot.sendMessage(msg.from.id, langres['promptChooseGroup'], {
-                    reply_to_message_id: msg.message_id,
-                    reply_markup: {inline_keyboard:[[{ text: langres['buttonChooseGroup'], url: cburl }]]}
-                })
-            } else {
-                return bot.sendMessage(msg.chat.id, langres['errorUserBanned']);
-            }
-        }).catch((err) => {
-            errorProcess(msg, bot, err)
-        })
-      } else {
-          /*bot.sendMessage(msg.from.id, langres['infoUseInPrivate'], {
-            reply_to_message_id: msg.message_id
-          })*/
-          groupChosen(msg, result, bot)
-      }
+        } else {
+            return groupChosen(msg, result, bot)
+        }
     } else {
-        bot.sendMessage(msg.from.id, langres['infoBusyState'], {
+        return bot.sendMessage(msg.from.id, langres['infoBusyState'], {
             reply_to_message_id: msg.message_id
         })
     }
-    
+
 }
 
-function groupChosen(msg, result, bot){
+async function groupChosen(msg, result, bot) {
     // Check state
     var uid = msg.from.id,
-        gid = msg.chat.id;
-    if (!session[uid] && gid < 0) {
+        gid = msg.chat.id
+    if (gid > 0) return
+    if (!session[uid]) {
         // Check user creator status && check group enrollment status
-        comlib.getRecord(gid)
-        .then(ret => {
-            if (ret) {
-                throw 'errorAlreadyExist';
-            } else {
-                return bot.getChatAdministrators(gid)
+        try {
+            const record = await comlib.getRecord(gid)
+            if (record)
+                return await bot.sendMessage(gid, langres['errorAlreadyExist']);
+            const admins = await bot.getChatAdministrators(gid)
+            const is_creator = admins.some(admin => admin.user.id == uid && admin.status == 'creator')
+            if (!is_creator)
+                return await bot.sendMessage(gid, langres['errorNotCreator']);
+            var cburl = `https://telegram.me/${_e.me.username}?start=enroll=${gid}`
+            await bot.sendMessage(gid, langres['promptGroupChosen'], {
+                reply_to_message_id: msg.message_id,
+                reply_markup: {
+                    inline_keyboard: [
+                        [{
+                            text: langres['buttonGroupChosenContinue'],
+                            url: cburl
+                        }]
+                    ]
+                }
+            })
+            // offer button to continue && set state
+            session[uid] = {
+                status: 'pending_enroll_pm'
             }
-        })
-        .then(ret => {
-            var isadmin = false;
-            ret.forEach((child)=> {
-                if (child.user.id == uid && child.status == 'creator') isadmin = true;
-            });
-            return isadmin;
-        }).then(ret => {
-            var cburl = util.format('https://telegram.me/%s?start=enroll=%d', _e.me.username, gid);
-            if (ret) {
-                bot.sendMessage(gid, langres['promptGroupChosen'], {
-                    reply_to_message_id: msg.message_id,
-                    reply_markup: {inline_keyboard:[[{ text: langres['buttonGroupChosenContinue'], url: cburl }]]}
-                }); // offer button to continue && set state
-                session[uid] = {status: 'pending_enroll_pm'};
-                comlib.setLock(uid);
-            }
-            else {bot.sendMessage(gid, langres['errorNotCreator']);} // reject
-        }).catch((err) => {
-            if (err == 'errorAlreadyExist') bot.sendMessage(gid, langres['errorAlreadyExist']);
-            else errorProcess(msg,bot,err);
-        })
+            comlib.setLock(uid);
+        } catch (e) {
+            return errorProcess(msg, bot, e);
+        }
     } else {
-        bot.sendMessage(msg.from.id, langres['infoBusyState'])
+        return bot.sendMessage(msg.from.id, langres['infoBusyState'])
     }
 }
 
-function groupSelected(msg, result, bot) {
+async function groupSelected(msg, result, bot) {
     // Check in state
     var gid = result[1],
         uid = msg.from.id,
-        sid = msg.chat.id;
+        sid = msg.chat.id
     if (session[uid] && session[uid].status == 'pending_enroll_pm' && uid == sid && gid < 0) {
         // do shit posting
-        bot.getChat(gid)
-        .then(ret => {
-            processEnrollWaitTag(uid, ret, msg, bot);
-            session[uid] = {status: 'enrolling', argu: gid};
-        })
+        try {
+            const chat = await bot.getChat(gid)
+            session[uid] = {
+                status: 'enrolling',
+                argu: gid
+            }
+            return processEnrollWaitTag(uid, chat, msg, bot);
+        } catch (e) {
+            return errorProcess(msg, bot, e);
+        }
     } else {
         bot.sendMessage(msg.chat.id, langres['infoMalState'])
     }
 }
 
-function processEnrollWaitTag(uid, ret, msg, bot) {
-    var row = [], i = 0;
-    var col = [];
+async function processEnrollWaitTag(uid, ret, msg, bot) {
+    var row = []
+    var col = []
     tags.forEach((child) => {
-        col.push({text: child});
+        col.push({
+            text: child
+        });
         if (col.length == 3) {
             row.push(col);
             col = [];
@@ -134,49 +137,82 @@ function processEnrollWaitTag(uid, ret, msg, bot) {
         row.push(col);
         col = [];
     }
-    bot.sendMessage(uid, util.format(langres['promptSendTag'], tags.join('\n')), {
-        reply_markup: {keyboard: row, one_time_keyboard: true}
-    })
-    .then((msg) => {
-        session[uid] = {status: 'waitfortag', argu: ret};
-    }).catch((err) => {
-        errorProcess(msg, bot, err)
-    });
+    try {
+        await bot.sendMessage(uid, util.format(langres['promptSendTag'], tags.join('\n')), {
+            reply_markup: {
+                keyboard: row,
+                one_time_keyboard: true
+            }
+        })
+        session[uid] = {
+            status: 'waitfortag',
+            argu: ret
+        }
+    } catch (e) {
+        errorProcess(msg, bot, e)
+    }
 }
 
-function processEnrollWaitDescription(uid, ret, msg, bot) {
-    bot.sendMessage(uid, langres['promptSendDesc'], {
-        reply_markup: {force_reply: true}
-    })
-    .then((msg) => {
-        session[uid] = {status: 'waitfordesc', argu: ret};
-    }).catch((err) => {
-        errorProcess(msg, bot, err)
-    });
+async function processEnrollWaitDescription(uid, ret, msg, bot) {
+    try {
+        await bot.sendMessage(uid, langres['promptSendDesc'], {
+            reply_markup: {
+                force_reply: true
+            }
+        })
+        session[uid] = {
+            status: 'waitfordesc',
+            argu: ret
+        }
+    } catch (e) {
+        errorProcess(msg, bot, e)
+    }
 }
 
-function processEnrollPublic(uid, groupinfo, msg, bot) {
-    var confirmtext = util.format(langres['confirmPublicGroupInfo'], groupinfo.id, groupinfo.username, groupinfo.title, groupinfo.tag, groupinfo.desc);
-    groupinfo.is_public = true;
-    bot.sendMessage(uid, confirmtext, {
-        reply_markup: {inline_keyboard:[[{ text: langres['buttonConfirm'], callback_data: 'enroller_confirm_enroll' }, { text: langres['buttonCancel'], callback_data: 'enroller_cancel' }]]}
-    }).then((msg) => {
-        session[uid] = {status: 'confirmmsg', argu: groupinfo};
-    }).catch((err) => {
-        errorProcess(msg, bot, err)
-    });
+
+async function processEnrollPublic(uid, groupinfo, msg, bot) {
+    try {
+        var confirmtext = util.format(langres['confirmPublicGroupInfo'], groupinfo.id, groupinfo.username, groupinfo.title, groupinfo.tag, groupinfo.desc);
+        groupinfo.is_public = true;
+        await bot.sendMessage(uid, confirmtext, {
+            reply_markup: {
+                inline_keyboard: [
+                    [{
+                        text: langres['buttonConfirm'],
+                        callback_data: 'enroller_confirm_enroll'
+                    }, {
+                        text: langres['buttonCancel'],
+                        callback_data: 'enroller_cancel'
+                    }]
+                ],
+                hide_keyboard: true
+            }
+        })
+        session[uid] = {
+            status: 'confirmmsg',
+            argu: groupinfo
+        }
+    } catch (e) {
+        errorProcess(msg, bot, e)
+    }
 }
 
 function processEnrollPrivateWaitLink(uid, groupinfo, msg, bot) {
     bot.sendMessage(uid, langres['promptSendLink'], {
-        reply_markup: {force_reply: true}
-    })
-    .then((msg) => {
-        session[uid] = {status: 'waitforlink', argu: groupinfo};
-    }).catch((err) => {
-        errorProcess(msg, bot, err)
-    });
+            reply_markup: {
+                force_reply: true
+            }
+        })
+        .then((msg) => {
+            session[uid] = {
+                status: 'waitforlink',
+                argu: groupinfo
+            };
+        }).catch((err) => {
+            errorProcess(msg, bot, err)
+        });
 }
+
 function processLink(msg, result, bot) {
     var link = result[1];
     if (session[msg.from.id])
@@ -191,9 +227,23 @@ function processEnrollPrivate(uid, groupinfo, msg, bot) {
     var confirmtext = util.format(langres['confirmPrivateGroupInfo'], groupinfo.id, groupinfo.title, groupinfo.invite_link, groupinfo.tag, groupinfo.desc);
     groupinfo.is_public = false;
     bot.sendMessage(uid, confirmtext, {
-        reply_markup: {inline_keyboard:[[{ text: langres['buttonConfirm'], callback_data: 'enroller_confirm_enroll' }, { text: langres['buttonCancel'], callback_data: 'enroller_cancel' }]]}
+        reply_markup: {
+            inline_keyboard: [
+                [{
+                    text: langres['buttonConfirm'],
+                    callback_data: 'enroller_confirm_enroll'
+                }, {
+                    text: langres['buttonCancel'],
+                    callback_data: 'enroller_cancel'
+                }]
+            ],
+            hide_keyboard: true
+        }
     }).then((msg) => {
-        session[uid] = {status: 'confirmmsg', argu: groupinfo};
+        session[uid] = {
+            status: 'confirmmsg',
+            argu: groupinfo
+        };
     }).catch((err) => {
         errorProcess(msg, bot, err)
     });
@@ -211,10 +261,10 @@ function purgeState(msg, result, bot) {
 
 
 
-function processCallbackButton(msg, type, bot){
+function processCallbackButton(msg, type, bot) {
     switch (msg.data) {
         case "enroller_confirm_enroll":
-        //check state
+            //check state
             if (session[msg.from.id] && session[msg.from.id].status == "confirmmsg") {
                 var groupinfo = session[msg.from.id].argu
                 groupinfo.creator = msg.from.id;
@@ -222,27 +272,27 @@ function processCallbackButton(msg, type, bot){
                 if (ret == 'new_public_queue') {
                     delete session[msg.from.id];
                     comlib.unsetLock(msg.from.id);
-                    bot.answerCallbackQuery(msg.id, langres['infoPubDone'], true)
-                    .then(ret => {
-                        return bot.editMessageText(langres['infoPubDone'], {
-                            chat_id: msg.message.chat.id,
-                            message_id: msg.message.message_id
-                        })
-                    }).catch((e) => {
-                        errorProcess(msg.message, bot, e);
-                    });
+                    bot.answerCallbackQuery(msg.id, langres['dialogPubDone'], true)
+                        .then(ret => {
+                            return bot.editMessageText(langres['infoPubDoneGCD'], {
+                                chat_id: msg.message.chat.id,
+                                message_id: msg.message.message_id
+                            })
+                        }).catch((e) => {
+                            errorProcess(msg.message, bot, e);
+                        });
                 } else if (ret == 'new_private_queue') {
                     delete session[msg.from.id];
                     comlib.unsetLock(msg.from.id);
-                    bot.answerCallbackQuery(msg.id, langres['infoPrivDone'], true)
-                    .then(ret => {
-                        return bot.editMessageText(langres['infoPrivDone'], {
-                            chat_id: msg.message.chat.id,
-                            message_id: msg.message.message_id
-                        })
-                    }).catch((e) => {
-                        errorProcess(msg.message, bot, e);
-                    });
+                    bot.answerCallbackQuery(msg.id, langres['dialogPrivDone'], true)
+                        .then(ret => {
+                            return bot.editMessageText(langres['infoPrivDoneGCD'], {
+                                chat_id: msg.message.chat.id,
+                                message_id: msg.message.message_id
+                            })
+                        }).catch((e) => {
+                            errorProcess(msg.message, bot, e);
+                        });
                 }
             }
             break;
@@ -251,10 +301,10 @@ function processCallbackButton(msg, type, bot){
             comlib.unsetLock(msg.from.id);
             bot.editMessageText(langres['infoSessionCleared'], {
                 chat_id: msg.message.chat.id,
-                message_id: msg.message.message_id 
+                message_id: msg.message.message_id
             });
     }
-} 
+}
 
 function updatePrivateLink(msg, result, bot) {
     if (msg.chat.id < 0) {
@@ -263,42 +313,36 @@ function updatePrivateLink(msg, result, bot) {
             invite_link: result[1],
             is_update: true
         };
-        _e.bot.getChatAdministrators(msg.chat.id)
-        .then(ret => {
-            var isadmin = false;
-            ret.forEach((child)=>{
-                if (child.user.id == msg.from.id && child.status == 'creator') isadmin = true
-            });
-            if (isadmin) return comlib.getRecord(msg.chat.id);
-                else throw 'errorNotCreator'
-        })
-        .then(ret => {
-            if (ret && updatenotify.invite_link == ret.invite_link) {
-                throw 'errorNoChanges'
-            }
-            else if (ret && !ret.is_public && !msg.chat.username) {
-                updatenotify.title = ret.title;
-                return comlib.doEnrollment(updatenotify);
-            } else if (ret && !ret.is_public && msg.chat.username) {
-                throw 'errorPrivToPub';
-            } else if (ret && ret.is_public && !msg.chat.username) {
-                updatenotify.title = ret.title;
-                updatenotify.is_public = false;
-                bot.sendMessage(msg.chat.id, langres['infoPubToPrivDone']);
-                return comlib.doEnrollment(updatenotify);
-            } else {
-                throw 'errorNotIndexed'
-            }
-        }).then(ret => {
-            bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
-        }).catch((e) => {
-            var replymark = {reply_to_message_id: msg.message_id}
-            if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator'], replymark);
-            else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'], replymark);
-            else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges'], replymark);
-            else if (e == 'errorPrivToPub') bot.sendMessage(msg.chat.id, langres['errorPrivToPub'], replymark);
-            else errorProcess(msg, bot, e);
-        }) // To be continued
+        comlib.getRecord(msg.chat.id)
+            .then(ret => {
+                if (ret) {
+                    if (ret.creator != msg.from.id) throw 'errorNotCreator'
+                    if (updatenotify.invite_link == ret.invite_link) throw 'errorNoChanges'
+                    else if (!ret.is_public && !msg.chat.username) {
+                        updatenotify.title = ret.title
+                        return comlib.doEnrollment(updatenotify)
+                    } else if (!ret.is_public && msg.chat.username) throw 'errorPrivToPub'
+                    else if (ret.is_public && !msg.chat.username) {
+                        updatenotify.title = ret.title
+                        updatenotify.is_public = false
+                        bot.sendMessage(msg.chat.id, langres['infoPubToPrivDone'])
+                        return comlib.doEnrollment(updatenotify)
+                    }
+                } else {
+                    throw 'errorNotIndexed'
+                }
+            }).then(ret => {
+                bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
+            }).catch((e) => {
+                var replymark = {
+                    reply_to_message_id: msg.message_id
+                }
+                if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator'], replymark);
+                else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'], replymark);
+                else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges'], replymark);
+                else if (e == 'errorPrivToPub') bot.sendMessage(msg.chat.id, langres['errorPrivToPub'], replymark);
+                else errorProcess(msg, bot, e);
+            }) // To be continued
     } else {
         bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
     }
@@ -308,52 +352,54 @@ function updateInfo(msg, result, bot) {
     if (msg.chat.id < 0) {
         var old_stat;
         comlib.getRecord(msg.chat.id)
-        .then(ret => {
-            old_stat = ret;
-            if (ret) 
-                if (ret.creator != msg.from.id) throw 'errorNotCreator';
-                else return _e.bot.getChat(msg.chat.id);
-            else throw 'errorNotIndexed';
-        })
-        .then(ret => {
-            var updatenotify = {
-                id: ret.id,
-                title: ret.title,
-                is_update: true
-            };
-            if (ret.username) {
-                updatenotify.username = ret.username;
-                updatenotify.is_public = true;
-                if (old_stat.extag) {
-                    updatenotify.is_silent = old_stat.extag['silent'] || 0
+            .then(ret => {
+                old_stat = ret;
+                if (ret)
+                    if (ret.creator != msg.from.id) throw 'errorNotCreator';
+                    else return _e.bot.getChat(msg.chat.id);
+                else throw 'errorNotIndexed';
+            })
+            .then(ret => {
+                var updatenotify = {
+                    id: ret.id,
+                    title: ret.title,
+                    is_update: true
+                };
+                if (ret.username) {
+                    updatenotify.username = ret.username;
+                    updatenotify.is_public = true;
+                    if (old_stat.extag) {
+                        updatenotify.is_silent = old_stat.extag['silent'] || 0
+                    }
+                } else if (old_stat.is_public == true) {
+                    throw 'errorPubToPriv'
+                } else {
+                    updatenotify.is_public = false;
                 }
-            } else if (old_stat.is_public == true) {
-                throw 'errorPubToPriv'
-            } else {
-                updatenotify.is_public = false;
-            }
-            if (old_stat.title == updatenotify.title && old_stat.username == updatenotify.username && old_stat.is_public == updatenotify.is_public)
-                throw 'errorNoChanges';
-            else 
-                return comlib.doEnrollment(updatenotify);
-        })
-        .then(ret => {
-            // Process Response
-            if (ret == 'new_public_queue') {
-                delete session[msg.from.id];
-                bot.sendMessage(msg.chat.id, langres['infoPubDone']);
-            } else if (ret == 'new_private_queue') {
-                delete session[msg.from.id];
-                bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
-            }
-        }).catch((e) => {
-            var replymark = {reply_to_message_id: msg.message_id}
-            if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator'], replymark);
-            else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'], replymark);
-            else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges'], replymark);
-            else if (e == 'errorPubToPriv') bot.sendMessage(msg.chat.id, langres['errorPubToPriv'], replymark);
-            else errorProcess(msg, bot, e);
-        })
+                if (old_stat.title == updatenotify.title && old_stat.username == updatenotify.username && old_stat.is_public == updatenotify.is_public)
+                    throw 'errorNoChanges';
+                else
+                    return comlib.doEnrollment(updatenotify);
+            })
+            .then(ret => {
+                // Process Response
+                if (ret == 'new_public_queue') {
+                    delete session[msg.from.id];
+                    bot.sendMessage(msg.chat.id, langres['infoPubDone']);
+                } else if (ret == 'new_private_queue') {
+                    delete session[msg.from.id];
+                    bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
+                }
+            }).catch((e) => {
+                var replymark = {
+                    reply_to_message_id: msg.message_id
+                }
+                if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator'], replymark);
+                else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'], replymark);
+                else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges'], replymark);
+                else if (e == 'errorPubToPriv') bot.sendMessage(msg.chat.id, langres['errorPubToPriv'], replymark);
+                else errorProcess(msg, bot, e);
+            })
     } else {
         bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
     }
@@ -363,54 +409,44 @@ function enrollmentOptOut(msg, result, bot) {
     if (msg.chat.id < 0) {
         if (session[msg.chat.id] == 'optout') {
             comlib.getRecord(msg.chat.id)
-            .then(ret => {
-                if (ret) 
-                    if (ret.creator != msg.from.id) throw 'errorNotCreator';
-                    else return msg.chat.id;
-                else throw 'errorNotIndexed';
-            })
-            .then(ret => {
-                return comlib.doRemoval(ret);
-            })
-            .then(ret => {
-                // Process Response
-                bot.sendMessage(msg.chat.id, langres['infoPubDone']);
-                comlib.event.emit('group_removal', msg.chat.id);
-                delete session[msg.chat.id];
-            }).catch((e) => {
-                if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator']);
-                else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
-                else errorProcess(msg, bot, e);
-            })
+                .then(ret => {
+                    if (ret)
+                        if (ret.creator != msg.from.id) throw 'errorNotCreator'
+                    else return msg.chat.id
+                    else throw 'errorNotIndexed'
+                })
+                .then(ret => {
+                    return comlib.doRemoval(ret)
+                })
+                .then(ret => {
+                    // Process Response
+                    bot.sendMessage(msg.chat.id, langres['infoRemoved'])
+                    comlib.event.emit('group_removal', msg.chat.id)
+                    delete session[msg.chat.id]
+                }).catch((e) => {
+                    if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator'])
+                    else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'])
+                    else errorProcess(msg, bot, e)
+                })
         } else {
-            _e.bot.getChatAdministrators(msg.chat.id)
-            .then(ret => {
-            var isadmin = false
-               ret.forEach((child)=>{
-                    if (child.user.id == msg.from.id && child.status == 'creator') isadmin = true;
-                });
-                return isadmin;
-            })
-            .then(ret => {
-                if (ret) return comlib.getRecord(msg.chat.id);
-                else bot.sendMessage(msg.chat.id, langres['errorNotCreator']); // reject
-            })
-            .then(ret => {
-                if (ret) {
-                    return bot.sendMessage(msg.chat.id, langres['promptRemoveConfirm']);
-                } else {
-                    bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
-                }
-            })
-            .then(ret => {
-                session[msg.chat.id] = 'optout';
-            })
-            .catch((e) => {
-                errorProcess(msg, bot, e);
-            })
+            comlib.getRecord(msg.chat.id)
+                .then(ret => {
+                    if (ret)
+                        if (ret.creator != msg.from.id) throw 'errorNotCreator'
+                    else return bot.sendMessage(msg.chat.id, langres['promptRemoveConfirm'])
+                    else throw 'errorNotIndexed'
+                })
+                .then(ret => {
+                    session[msg.chat.id] = 'optout'
+                })
+                .catch((e) => {
+                    if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator'])
+                    else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'])
+                    else errorProcess(msg, bot, e)
+                })
         }
     } else {
-        bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
+        bot.sendMessage(msg.chat.id, langres['errorNotInGroup'])
     }
 }
 
@@ -423,14 +459,14 @@ function processText(msg, type, bot) {
                 newinfo['tag'] = input;
                 processEnrollWaitDescription(msg.from.id, newinfo, msg, bot);
             } else if (session[msg.from.id].status == 'waitfortag' && tags.indexOf(input) == -1) {
-                bot.sendMessage(msg.chat.id, util.format(langres['errorInvaildTag'], tags.join('\n')));
-            } else if (session[msg.from.id].status == 'waitfordesc') {
-                var newinfo = session[msg.from.id].argu;
-                newinfo['desc'] = input;
-                if (newinfo.username) processEnrollPublic(msg.from.id, newinfo, msg, bot); // is public group
-                        else processEnrollPrivateWaitLink(msg.from.id, newinfo, msg, bot); // is private group
-            }
-    } catch(e) {
+            bot.sendMessage(msg.chat.id, util.format(langres['errorInvaildTag'], tags.join('\n')));
+        } else if (session[msg.from.id].status == 'waitfordesc') {
+            var newinfo = session[msg.from.id].argu;
+            newinfo['desc'] = input;
+            if (newinfo.username) processEnrollPublic(msg.from.id, newinfo, msg, bot); // is public group
+            else processEnrollPrivateWaitLink(msg.from.id, newinfo, msg, bot); // is private group
+        }
+    } catch (e) {
         errorProcess(msg, bot, e);
     }
 }
@@ -441,20 +477,72 @@ function updateTag(msg, result, bot) {
         var tag = result[1];
         if (tags.indexOf(tag) > -1) {
             comlib.getRecord(msg.chat.id)
-            .then(ret => {
-                if (ret) 
-                    if (ret.creator != msg.from.id) throw 'errorNotCreator';
-                    else {
-                        old_stat = ret
-                        return _e.bot.getChat(msg.chat.id)
+                .then(ret => {
+                    if (ret)
+                        if (ret.creator != msg.from.id) throw 'errorNotCreator';
+                        else {
+                            old_stat = ret
+                            return _e.bot.getChat(msg.chat.id)
+                        }
+                    else throw 'errorNotIndexed';
+                })
+                .then(ret => {
+                    var updatenotify = {
+                        id: ret.id,
+                        tag: tag,
+                        is_update: true
+                    };
+                    if (ret.username) {
+                        updatenotify.username = ret.username;
+                        updatenotify.is_public = true;
+                    } else {
+                        updatenotify.is_public = false;
                     }
+                    if (old_stat.tag == updatenotify.tag && old_stat.is_public == updatenotify.is_public)
+                        throw 'errorNoChanges';
+                    else
+                        return comlib.doEnrollment(updatenotify);
+                })
+                .then(ret => {
+                    // Process Response
+                    if (ret == 'new_public_queue') {
+                        delete session[msg.from.id];
+                        bot.sendMessage(msg.chat.id, langres['infoPubDone']);
+                    } else if (ret == 'new_private_queue') {
+                        delete session[msg.from.id];
+                        bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
+                    }
+                }).catch((e) => {
+                    if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator']);
+                    else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
+                    else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges']);
+                    else errorProcess(msg, bot, e);
+                })
+        } else {
+            bot.sendMessage(msg.chat.id, util.format(langres['errorInvaildTag'], tags.join('\n')));
+        }
+    } else {
+        bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
+    }
+}
+
+function updateDesc(msg, result, bot) {
+    if (msg.chat.id < 0) {
+        var old_stat;
+        var desc = result[1];
+        comlib.getRecord(msg.chat.id)
+            .then(ret => {
+                old_stat = ret;
+                if (ret)
+                    if (ret.creator != msg.from.id) throw 'errorNotCreator';
+                    else return _e.bot.getChat(msg.chat.id);
                 else throw 'errorNotIndexed';
             })
             .then(ret => {
                 var updatenotify = {
                     id: ret.id,
-                    tag: tag,
-                    is_update: true    
+                    desc: desc,
+                    is_update: true
                 };
                 if (ret.username) {
                     updatenotify.username = ret.username;
@@ -464,7 +552,7 @@ function updateTag(msg, result, bot) {
                 }
                 if (old_stat.tag == updatenotify.tag && old_stat.is_public == updatenotify.is_public)
                     throw 'errorNoChanges';
-                else 
+                else
                     return comlib.doEnrollment(updatenotify);
             })
             .then(ret => {
@@ -482,65 +570,13 @@ function updateTag(msg, result, bot) {
                 else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges']);
                 else errorProcess(msg, bot, e);
             })
-        } else {
-            bot.sendMessage(msg.chat.id, util.format(langres['errorInvaildTag'], tags.join('\n')));
-        }   
-    } else {
-        bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
-    }
-}
-
-function updateDesc(msg, result, bot) {
-    if (msg.chat.id < 0) {
-        var old_stat;
-        var desc = result[1];
-        comlib.getRecord(msg.chat.id)
-        .then(ret => {
-            old_stat = ret;
-            if (ret) 
-                if (ret.creator != msg.from.id) throw 'errorNotCreator';
-                else return _e.bot.getChat(msg.chat.id);
-            else throw 'errorNotIndexed';
-        })
-        .then(ret => {
-            var updatenotify = {
-                id: ret.id,
-                desc: desc,
-                is_update: true    
-            };
-            if (ret.username) {
-                updatenotify.username = ret.username;
-                updatenotify.is_public = true;
-            } else {
-                updatenotify.is_public = false;
-            }
-            if (old_stat.tag == updatenotify.tag && old_stat.is_public == updatenotify.is_public)
-                throw 'errorNoChanges';
-            else 
-                return comlib.doEnrollment(updatenotify);
-        })
-        .then(ret => {
-            // Process Response
-            if (ret == 'new_public_queue') {
-                delete session[msg.from.id];
-                bot.sendMessage(msg.chat.id, langres['infoPubDone']);
-            } else if (ret == 'new_private_queue') {
-                delete session[msg.from.id];
-                bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
-            }
-        }).catch((e) => {
-            if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator']);
-            else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
-            else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges']);
-            else errorProcess(msg, bot, e);
-        })
     } else {
         bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
     }
 }
 
 function missingParameter(msg, result, bot) {
-    if (msg.chat.id < 0){
+    if (msg.chat.id < 0) {
         bot.sendMessage(msg.chat.id, '请在指令后面跟上要更新的内容，例如链接、标签或简介', {
             reply_to_message_id: msg.message_id
         });

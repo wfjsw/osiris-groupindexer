@@ -15,7 +15,7 @@ function initevents() {
             disable_web_page_preview: true
         }).catch((e) => {
             console.error(e);
-            bot.sendMessage(admin_id, e);
+            bot.sendMessage(admin_id, e.stack);
         })
     });
     context.on('update_public_data', (groupinfo) => {
@@ -26,7 +26,7 @@ function initevents() {
                 });
             })
             .catch((e) => {
-                bot.sendMessage(admin_id, e);
+                bot.sendMessage(admin_id, e.stack);
                 console.error(e);
             })
     });
@@ -34,7 +34,7 @@ function initevents() {
         bot.sendMessage(admin_id, util.inspect(groupinfo), {
             disable_web_page_preview: true
         }).catch((e) => {
-            bot.sendMessage(admin_id, e);
+            bot.sendMessage(admin_id, e.stack);
             console.error(e);
         })
     });
@@ -47,7 +47,7 @@ function initevents() {
                 });
             })
             .catch((e) => {
-                bot.sendMessage(admin_id, e);
+                bot.sendMessage(admin_id, e.stack);
                 console.error(e);
             })
     });

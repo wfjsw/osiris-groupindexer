@@ -1,10 +1,20 @@
-const { JSDOM } = require("jsdom");
+const {
+    JSDOM
+} = require("jsdom");
 
-const langCodeAllowed = ['zh-CN', 'zh-Hans-CN', 'zh-TW', 'zh-Hans-JP', 'zh-Hans-US', 'zh-Hant-HK', 'en-HK', 'zh-HK', 'zh-Hant-TW', 'zh-Hant-US', 'zho', 'en-CN', 'zh-Hans-HK', 'en-HK', 'zh', 'zh-Hans-DE', 'zh-Hant-UK', "zh-Hans", "zh-Hant"]
+const ADMIN_GROUP = require('../config.gpindex.json')['gpindex_admin'];
+
+const langCodeAllowed = ['zh-CN', 'zh-Hans-CN', 'zh-TW', 'zh-Hans-JP',
+    'zh-Hans-US', 'zh-Hant-HK', 'en-HK', 'zh-HK', 'zh-Hant-TW',
+    'zh-Hant-US', 'zho', 'en-CN', 'zh-Hans-HK', 'en-HK', 'zh',
+    'zh-Hans-DE', 'zh-Hant-UK', "zh-Hans", "zh-Hant", 'zh-Hans-GB',
+    'zh@collation=pinyin', 'zh-Hans-NL', 'zh-Hans-CA']
 const langCodeBanned = ['fa-IR']
 
+var _e, comlib, _ga
 var cache_time = 0
-cache_title = ''
+var allowed_answer = []
+
 function process(msg, type, bot) {
     if (msg.chat.id > 0) {
         comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
@@ -16,10 +26,11 @@ function process(msg, type, bot) {
                         return comlib.UserFlag.setUserFlag(msg.from.id, 'validated', 1)
                     } else if (langCodeBanned.indexOf(msg.from.language_code) > -1) {
                         _ga.tEvent(msg.from, 'validateuser', 'validateuser.languageBanned')
+                        bot.forwardMessage(-1001149888177, msg.chat.id, msg.message_id)
+                        bot.sendMessage(ADMIN_GROUP, `${msg.from.language_code} user: ${msg.from.id}`)
                         bot.sendMessage(msg.from.id, '抱歉，您无权使用此服务。')
                         return comlib.UserFlag.setUserFlag(msg.from.id, 'block', 1)
-                    }
-                    else if (msg.text.trim() == cache_title) {
+                    } else if (allowed_answer.indexOf(msg.text.trim()) > -1) {
                         _ga.tEvent(msg.from, 'validateuser', 'validateuser.answerHit')
                         bot.sendMessage(msg.from.id, '验证通过，欢迎使用群组索引服务。')
                         return comlib.UserFlag.setUserFlag(msg.from.id, 'validated', 1)
@@ -40,9 +51,12 @@ function getQuestion(msg, bot) {
         // cache_title can't trust
         _ga.tEvent(msg.from, 'validateuser', 'validateuser.getNewQuestion')
         JSDOM.fromURL("http://people.com.cn/").then(dom => {
-            var current_title = dom.window.document.querySelector('#rmw_topline > h1 > a').text
+            var current_title = dom.window.document.querySelector('#rmw_topline h1 a')
             cache_time = current_time
-            cache_title = current_title
+            allowed_answer = []
+            allowed_answer.push(current_title.href.trim())
+            if (dom.window.document.querySelector('#rmw_topline h1 a img') === null)
+                allowed_answer.push(current_title.text.trim())
             deliverQuestion(msg, bot)
         });
     } else {
@@ -51,9 +65,19 @@ function getQuestion(msg, bot) {
 }
 
 function deliverQuestion(msg, bot) {
-    const hint = cache_title[0] + cache_title[1] + ' ...... ' + cache_title[cache_title.length - 2] + cache_title[cache_title.length - 1]
-    const question = `保护群组免受垃圾信息攻击\n\n请回答以下问题：当前人民网头版头条新闻标题是？（建议复制粘贴，注意全半角标点和空格）\n提示：${hint}\n\n流量用户请注意：人民网无手机优化版，耗流量较多，请谨慎访问。\n\n如您通过验证时遇到了困难，请加入支持群提交工单，我们将非常乐意为您进行人工验证。`
-    bot.sendMessage(msg.from.id, question)
+    let hint
+    if (allowed_answer.length > 1) {
+        const cache_title = allowed_answer[1]
+        hint = cache_title.substring(0, 3) + ' ...... ' + cache_title.substring(cache_title.length - 3)
+    } else {
+        hint = '无法获取文字标题，您只能使用链接地址。'
+    }
+    const question = `- 保护群组免受垃圾信息攻击 -\n\n请回答以下问题：当前人民网电脑版头版头条新闻所对应链接地址或标题文字是？（输入标题时请注意标点全半角）\n*注意下是人民网官网不是日人民报数据库。*\n提示：${hint}\n\n该网页耗流量较多，请尽量使用电脑通过验证。\n如您通过验证时遇到了困难，请加入支持群提交工单，我们将非常乐意为您进行人工验证。`
+    return bot.sendMessage(msg.from.id, question)
+}
+
+function getQuestionDebug(msg, result, bot) {
+    return getQuestion(msg, bot)
 }
 
 module.exports = {
@@ -63,6 +87,7 @@ module.exports = {
         _ga = e.libs['ga'];
     },
     run: [
-        ['text', process]
+        ['text', process],
+        [/\/debug getQuestion/, getQuestionDebug]
     ]
 }

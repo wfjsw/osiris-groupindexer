@@ -22,7 +22,7 @@ function passiveUpdate(msg, bot) {
         }).then((ret) => {
             // _ga.tEvent(gid, 'passiveUpdate', 'updated')
         }).catch((e) => {
-            console.error(e)
+            console.error(e.stack)
             _ga.tException(gid, e.description, false)
         })
     }

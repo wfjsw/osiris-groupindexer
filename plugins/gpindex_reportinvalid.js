@@ -45,7 +45,7 @@ function processCallbackButton(msg, type, bot) {
                     //_ga.tEvent(msg.from.id, 'reportInvalid', 'doReport', 'notAllowed')
                     break;
                 default: 
-                _e.bot.sendMessage(ADMIN_GROUP, '```'+util.inspect(e)+'```', {
+                _e.bot.sendMessage(ADMIN_GROUP, '```'+util.inspect(e.stack)+'```', {
                     parse_mode: 'Markdown'
                 })
                 _e.bot.answerCallbackQuery(msg.id, '对不起，出现了一些问题，请稍后再试。', true);

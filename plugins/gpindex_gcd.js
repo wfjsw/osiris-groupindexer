@@ -1,9 +1,8 @@
 'use strict';
 
 const { gcd } = require('../config.gpindex.json')
-var _ga, _bot
-var current_timer = 0, 
-    cache_link = '', 
+var _ga, _bot, comlib
+var cache_link = '', 
     cache_time = 0
 
 function updateLink() {
@@ -72,6 +71,7 @@ function printCreatedChat(msg, type, bot) {
 module.exports = {
     init: (e) => {
         _ga = e.libs['ga']
+        comlib = e.libs['gpindex_common']
         _bot = e.bot
         updateLink()
     },
