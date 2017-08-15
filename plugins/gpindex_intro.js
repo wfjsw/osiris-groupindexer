@@ -14,7 +14,7 @@ function writeHelp(msg, result, bot) {
                     [{text: '获取汉化文件', url: 'https://t.me/zh_CN'}]
                 ]}
         }).catch((e) => {
-            _ga.tException(msg.from, e.description, true)
+            _ga.tException(msg.from, e, true)
         })
     }
 }

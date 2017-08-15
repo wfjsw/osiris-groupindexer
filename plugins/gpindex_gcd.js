@@ -29,7 +29,7 @@ function sendGCDLink(msg, result, bot) {
                     }
                 }
             }).catch(e => {
-                _ga.tException(msg.from.id, e.description, false)
+                _ga.tException(msg.from.id, e, false)
             })
     }
 }
@@ -63,7 +63,7 @@ function printCreatedChat(msg, type, bot) {
                 })
             }
         }).catch(e => {
-            _ga.tException(msg.from.id, e.description, false)
+            _ga.tException(msg.from.id, e, false)
         })
     }
 }

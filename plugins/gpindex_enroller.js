@@ -4,13 +4,14 @@ const admin_id = require('../config.gpindex.json')['gpindex_admin'];
 
 var langres = require('../resources/gpindex_enroller.json');
 var session = {};
-var _e, comlib;
+var _e, comlib, _ga
 var tags = require('../config.gpindex.json')['gpindex_tags'];
 
 function errorProcess(msg, bot, err) {
     if (err == 'notValidated') return
     var errorlog = '```\n' + err.stack + '```\n';
     console.error(err);
+    _ga.tException(msg.from, err, true)
     bot.sendMessage(msg.chat.id, langres['infoBugReport'], {
         reply_to_message_id: msg.message_id
     });
@@ -32,11 +33,16 @@ async function startEnrollment(msg, result, bot) {
                         var cburl = `https://telegram.me/${_e.me.username}?startgroup=grpselect`
                         return await bot.sendMessage(msg.from.id, langres['promptChooseGroup'], {
                             reply_to_message_id: msg.message_id,
+                            disable_web_page_preview: true,
                             reply_markup: {
                                 inline_keyboard: [
                                     [{
                                         text: langres['buttonChooseGroup'],
                                         url: cburl
+                                    }],
+                                    [{
+                                        text: langres['buttonEnrollChannelReadme'],
+                                        url: langres['linkChannelReadme']
                                     }]
                                 ]
                             }
@@ -155,11 +161,18 @@ async function processEnrollWaitTag(uid, ret, msg, bot) {
 
 async function processEnrollWaitDescription(uid, ret, msg, bot) {
     try {
-        await bot.sendMessage(uid, langres['promptSendDesc'], {
-            reply_markup: {
-                force_reply: true
+        let message = langres['promptSendDesc']
+        let options = {}
+        if (ret.description) {
+            message += `\n\n${langres['promptCurrentDesc']}\n${ret.description}`
+            options.reply_markup = {
+                inline_keyboard: [[{
+                    text: langres['buttonUseGroupDescription'],
+                    callback_data: 'enroller_usecurrentdesc'
+                }]]
             }
-        })
+        }
+        await bot.sendMessage(uid, message, options)
         session[uid] = {
             status: 'waitfordesc',
             argu: ret
@@ -167,6 +180,13 @@ async function processEnrollWaitDescription(uid, ret, msg, bot) {
     } catch (e) {
         errorProcess(msg, bot, e)
     }
+}
+
+async function processEnrollUseCurrentDesc(msg, bot) {
+    var newinfo = session[msg.from.id].argu;
+    newinfo['desc'] = newinfo['description']
+    if (newinfo.username) processEnrollPublic(msg.from.id, newinfo, msg, bot); // is public group
+    else processEnrollPrivateWaitLink(msg.from.id, newinfo, msg, bot); // is private group
 }
 
 
@@ -198,11 +218,7 @@ async function processEnrollPublic(uid, groupinfo, msg, bot) {
 }
 
 function processEnrollPrivateWaitLink(uid, groupinfo, msg, bot) {
-    bot.sendMessage(uid, langres['promptSendLink'], {
-            reply_markup: {
-                force_reply: true
-            }
-        })
+    bot.sendMessage(uid, langres['promptSendLink'])
         .then((msg) => {
             session[uid] = {
                 status: 'waitforlink',
@@ -261,7 +277,7 @@ function purgeState(msg, result, bot) {
 
 
 
-function processCallbackButton(msg, type, bot) {
+async function processCallbackButton(msg, type, bot) {
     switch (msg.data) {
         case "enroller_confirm_enroll":
             //check state
@@ -284,7 +300,7 @@ function processCallbackButton(msg, type, bot) {
                 } else if (ret == 'new_private_queue') {
                     delete session[msg.from.id];
                     comlib.unsetLock(msg.from.id);
-                    bot.answerCallbackQuery(msg.id, langres['dialogPrivDone'], true)
+                    return bot.answerCallbackQuery(msg.id, langres['dialogPrivDone'], true)
                         .then(ret => {
                             return bot.editMessageText(langres['infoPrivDoneGCD'], {
                                 chat_id: msg.message.chat.id,
@@ -299,10 +315,14 @@ function processCallbackButton(msg, type, bot) {
         case "enroller_cancel":
             delete session[msg.from.id];
             comlib.unsetLock(msg.from.id);
-            bot.editMessageText(langres['infoSessionCleared'], {
+            return bot.editMessageText(langres['infoSessionCleared'], {
                 chat_id: msg.message.chat.id,
                 message_id: msg.message.message_id
             });
+        case 'enroller_usecurrentdesc': 
+            bot.answerCallbackQuery(msg.id, '')    
+            return processEnrollUseCurrentDesc(msg, bot)    
+                
     }
 }
 
@@ -585,8 +605,9 @@ function missingParameter(msg, result, bot) {
 
 module.exports = {
     init: (e) => {
-        _e = e;
-        comlib = _e.libs['gpindex_common'];
+        _e = e
+        comlib = _e.libs['gpindex_common']
+        _ga = _e.libs['ga']
     },
     run: [
         [/^\/enroll/, startEnrollment],

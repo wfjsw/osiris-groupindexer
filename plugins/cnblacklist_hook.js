@@ -12,7 +12,9 @@ app.use(bodyParser.urlencoded({
 }))
 
 async function upstreamUnban(id) {
-    return await _e.bot.sendMessage(admin_id, `${id} unbanned by upstream`)
+    await comlib.UserFlag.setUserFlag(parseInt(id), 'block', 0)
+    await comlib.UserFlag.setUserFlag(parseInt(id), 'spam', 0)
+    return await _e.bot.sendMessage(admin_id, `${id} status: unbanned by upstream`)
 }
 
 async function halalBan(id) {

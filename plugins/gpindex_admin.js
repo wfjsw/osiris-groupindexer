@@ -155,12 +155,48 @@ async function doRemoveFeedByID(msg, result, bot) {
 async function getChat(msg, result, bot) {
     if (msg.chat.id == admin_id)
         try {
-            const ret = await _e.bot.getChat(parseInt(extractId(result[1], msg.reply_to_message)))
+            const ret = await bot.getChat(parseInt(extractId(result[1], msg.reply_to_message)))
             return await bot.sendMessage(msg.chat.id, util.inspect(ret));
         } catch (e) {
             return bot.sendMessage(msg.chat.id, e.stack);
         }
+}
 
+async function getChatAdmin(msg, result, bot) {
+    if (msg.chat.id == admin_id)
+        try {
+            const ret = await bot.getChatAdministrators(parseInt(extractId(result[1], msg.reply_to_message)))
+            let message = `Group ${parseInt(extractId(result[1], msg.reply_to_message))}\n\n`
+            ret.forEach(admin => {
+                if (admin.status == 'creator') 
+                    message += 'C'
+                else if (admin.status == 'administrator')
+                    message += 'A'
+                else 
+                    message += 'U'
+
+                message += ` ${admin.user.id} ${admin.user.first_name} ${admin.user.last_name || ''} `
+                if (admin.status == 'administrator') {
+                    message += admin.can_change_info ? 'C' : '-'
+                    message += admin.can_delete_messages ? 'D' : '-'
+                    message += admin.can_invite_users ? 'I' : '-'
+                    message += admin.can_restrict_members ? 'R' : '-'
+                    message += admin.can_pin_messages ? 'p' : '-'
+                    message += admin.can_promote_members ? 'P' : '-'
+                }
+                message += '\n'
+            })
+            message += '\n-----\n'
+            message += 'C: can_change_info\n'
+            message += 'D: can_delete_messages\n'
+            message += 'I: can_invite_users\n'
+            message += 'R: can_restrict_members\n'
+            message += 'p: can_pin_messages\n'
+            message += 'P: can_promote_members\n'
+            return await bot.sendMessage(msg.chat.id, message);
+        } catch (e) {
+            return bot.sendMessage(msg.chat.id, e.stack);
+        }
 }
 
 async function doForceUpdate(msg, result, bot) {
@@ -248,6 +284,7 @@ module.exports = {
         [/^\/rmfeedid ([0-9]{1,})$/, doRemoveFeedByID],
         [/^\/rmfeedid https:\/\/(?:telegram.me|t.me)\/[_A-Za-z0-9]{4,}\/([0-9]{1,})$/, doRemoveFeedByID],
         [/^\/getchat ([0-9-]{6,}|@[a-zA-Z0-9_]{5,}|reply)$/, getChat],
+        [/^\/getadmin ([0-9-]{6,}|@[a-zA-Z0-9_]{5,}|reply)$/, getChatAdmin],
         [/^\/forceupdate ([0-9-]{6,}|@[a-zA-Z0-9_]{5,}|reply)$/, doForceUpdate],
         [/^\/getflag ([0-9-]{6,}|reply) ([^\s]+)$/, getUserFlag],
         [/^\/setflag ([0-9-]{6,}|reply) ([^\s]+) ([^\s]+)$/, setUserFlag],

@@ -1,4 +1,6 @@
 var _e, comlib, _ga
+const admin_id = require('../config.gpindex.json')['gpindex_admin'];
+
 
 /* Feature List
  * nospam
@@ -66,7 +68,7 @@ async function inGroupValidation(msg, bot, operator) {
         case 'enable':
             _ga.tEvent(msg.from, 'featureswitch', 'featureswitch.inGroupValidation.enabled')
             await comlib.GroupExTag.setGroupExTag(msg.chat.id, 'feature:ingroupvalidation', 1)
-            return await bot.sendMessage(msg.chat.id, '已成功启用加群验证。', {
+            return await bot.sendMessage(msg.chat.id, '已成功启用加群防清真验证。\n在加群防清真验证启用时，请确保机器人在群中任管理员，且具有 Ban Users 权限。', {
                 reply_to_message_id: msg.message_id
             })
         case 'disable':
@@ -83,7 +85,9 @@ async function switchFeature(msg, result, bot) {
     if (msg.chat.id > 0) return
     const record = await comlib.getRecord(msg.chat.id)
     if (!record) return
-    if (msg.from.id !== record.creator) return
+    const is_superadmin = !(['left', 'kicked'].indexOf((await bot.getChatMember(admin_id, msg.from.id)).status) > -1)
+    const is_admin = ['creator', 'administrator'].indexOf((await bot.getChatMember(msg.chat.id, msg.from.id)).status) > -1
+    if (!is_admin && !is_superadmin) return
     const [operator, feature_name] = result.slice(1)
     switch (feature_name) {
         case 'nospam':

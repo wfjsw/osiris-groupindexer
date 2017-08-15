@@ -23,7 +23,7 @@ function passiveUpdate(msg, bot) {
             // _ga.tEvent(gid, 'passiveUpdate', 'updated')
         }).catch((e) => {
             console.error(e.stack)
-            _ga.tException(gid, e.description, false)
+            _ga.tException(msg.from.id, e, false)
         })
     }
 }
@@ -33,5 +33,8 @@ module.exports = {
         _e = e;
         _ga = e.libs['ga'];
     },
-    preprocess: passiveUpdate
+    preprocess: passiveUpdate,
+    run: [
+        ['']
+    ]
 }

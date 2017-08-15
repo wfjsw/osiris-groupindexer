@@ -27,7 +27,8 @@ function errorProcess(msg, bot, err) {
         bot.sendMessage(msg.chat.id, langres['infoBugReport'], {
             reply_to_message_id: msg.message_id
         })
-    } catch (e) {}
+    } catch (e) { }
+    _ga.tException(msg.from, err, true)
     bot.sendMessage(admin_id, errorlog, {
         parse_mode: 'Markdown'
     });
@@ -45,7 +46,7 @@ async function generateDynLink(gid, bot) {
         return new_link
     } catch (e) {
         console.error(e)
-        var errorlog = '```\n' + e.stack + '```\n';
+        var errorlog = gid+ '\n```\n' + e.stack + '```\n';
         await bot.sendMessage(admin_id, errorlog, {
             parse_mode: 'Markdown'
         });
@@ -55,19 +56,30 @@ async function generateDynLink(gid, bot) {
 
 async function getDynLink(gid, bot) {
     if (dynlink_cache[gid]) {
-        if ((new Date().valueOf() - dynlink_cache[gid].time) < 5 * 60 * 1000)
-            return dynlink_cache[gid].link
-        else if (!dynlink_cache[gid].displayed) {
+        if (!dynlink_cache[gid].displayed) {
+            // generated in 5 min window, not displayed yet, display now
             dynlink_cache[gid].displayed = true
+            dynlink_cache[gid].time = new Date().valueOf()
             setTimeout(generateDynLink, 5 * 60 * 1000, gid, bot)
             return dynlink_cache[gid].link
-        } else if ((new Date().valueOf() - dynlink_cache[gid].time) < 7 * 60 * 1000) {
+        } else if ((new Date().valueOf() - dynlink_cache[gid].time) < 5 * 60 * 1000) {
+            // in valid cache time
+            return dynlink_cache[gid].link
+        } else {
+            // is exception, 5 min window regeneration not working, manually regenerate.
             const link = await generateDynLink(gid, bot)
+            dynlink_cache[gid].displayed = true
             setTimeout(generateDynLink, 5 * 60 * 1000, gid, bot)
             return link
         }
     } else {
+        // not yet cached, create
         const link = await generateDynLink(gid, bot)
+        /*dynlink_cache[gid] = {
+            link,
+            time: new Date().valueOf()
+        }*/
+        dynlink_cache[gid].displayed = true
         setTimeout(generateDynLink, 5 * 60 * 1000, gid, bot)
         return link
     }
@@ -77,7 +89,18 @@ function generateList(recs) {
     let outmsg = []
     outmsg[0] = ''
     var head = 0
-    recs.forEach((child) => {
+    let sorted_recs = recs.sort((a, b) => {
+        const ca = a.member_count || 0
+        const cb = b.member_count || 0
+        if (ca > cb) {
+            return -1
+        } else if (ca == cb) {
+            return 0
+        } else if (ca < cb) {
+            return 1
+        }
+    })
+    sorted_recs.forEach((child) => {
         var link = `https://t.me/${_e.me.username}?start=getdetail=${child.id}`
         var line, prefix;
 
@@ -87,10 +110,13 @@ function generateList(recs) {
             prefix = '📢'
 
         if (child.is_public) prefix += '🌐'
-        else if (child.extag && !child.extag['feature:dynlink']) prefix += '🔐'
+        else if (!child.extag || (child.extag && !child.extag['feature:dynlink'])) prefix += '🔐'
         else prefix += '🔒'
 
         prefix += '|'
+
+        if (child.member_count && !isNaN(child.member_count))
+            prefix += `👤 ${child.member_count}|`
 
         if (child.extag) {
             if (child.extag['official'] == 1) prefix += `<i>【${langres['tagOfficial']}】</i>|`;
@@ -98,10 +124,10 @@ function generateList(recs) {
         }
 
         if (child.is_public) line = prefix + ` <a href="https://t.me/${child.username}">${he.encode(child.title)}</a>`
-        else if (child.extag && !child.extag['feature:dynlink']) line = prefix + ` <a href="${child.invite_link}">${he.encode(child.title)}</a>`
+        else if (!child.extag || (child.extag && !child.extag['feature:dynlink'])) line = prefix + ` <a href="${child.invite_link}">${he.encode(child.title)}</a>`
         else line = prefix + ` <a href="${link}">${he.encode(child.title)}</a>\n`
 
-        if (child.extag && !child.extag['feature:dynlink']) {
+        if (!child.extag || (child.extag && !child.extag['feature:dynlink'])) {
             line += `(<a href="${link}">详情</a>) \n`
         }
 
@@ -270,9 +296,11 @@ async function getDetail(msg, result, bot) {
                         let dynlink = await getDynLink(record.id, bot)
                         if (dynlink) {
                             invite_link = dynlink
-                            message += '\n\n本群组受动态链接保护，链接 5 分钟后失效，请尽快使用。'
+                            message += '\n\n本群组受动态链接保护，链接最长 5 分钟失效，请尽快使用。'
                         } else {
                             invite_link = record.invite_link
+                            message += '\n\n动态链接生成失败，当前为数据库缓存链接。我们会尽快调查此事件。'
+                            console.log(`Failed to generate dynlink for id: ${record.id}  ${dynlink}`)
                             await bot.sendMessage(admin_id, `Failed to generate dynlink for id: ${record.id}`);
                         }
                     } else {

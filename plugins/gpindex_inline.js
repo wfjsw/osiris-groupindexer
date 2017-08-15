@@ -13,6 +13,7 @@ var _e, comlib, _ga;
 function errorProcess(msg, bot, err) {
     if (err == 'notValidated') return
     var errorlog = '```\n' + err.stack + '```\n';
+    _ga.tException(msg.from, err, true)
     console.error(err);
     bot.sendMessage(admin_id, errorlog, {
         parse_mode: 'Markdown'
@@ -74,7 +75,7 @@ async function processInlineById(msg, bot) {
                 query_result.title,
                 query_result.tag,
                 query_result.desc,
-                query_result.is_public ? query_result.username : query_result.invite_link
+                query_result.is_public ? query_result.username : `https://t.me/${_e.me.username}?start=getdetail=${query_result.id}`
             )
             const result = [{
                 type: 'article',
@@ -94,6 +95,19 @@ async function processInlineById(msg, bot) {
         }
     } catch (e) {
         errorProcess(msg, bot, e)
+        const result = [{
+            type: 'article',
+            id: '400',
+            title: `在按您的请求搜索时出现错误。`,
+            input_message_content: {
+                message_text: '在按您的请求搜索时出现错误。\n\n技术详情：' + e.message,
+                disable_web_page_preview: true
+            }
+        }]
+        return await bot.answerInlineQuery(msg.id, result, {
+            next_offset: '',
+            cache_time: 5, //on production env
+        })
     }
 }
 
@@ -120,6 +134,17 @@ async function processInlineByName(msg, bot) {
             })
         } */
         let result_array = []
+        result = result.sort((a, b) => {
+            const ca = a.member_count || 0
+            const cb = b.member_count || 0
+            if (ca > cb) {
+                return -1
+            } else if (ca == cb) {
+                return 0
+            } else if (ca < cb) {
+                return 1
+            }
+        })
         result = result.slice(offset, offset + single_inline_threshold)
         result.forEach(ret => {
             const {
@@ -155,6 +180,19 @@ async function processInlineByName(msg, bot) {
         })
     } catch (e) {
         errorProcess(msg, bot, e)
+        const result = [{
+            type: 'article',
+            id: '400',
+            title: `在按您的请求搜索时出现错误。`,
+            input_message_content: {
+                message_text: '在按您的请求搜索时出现错误。\n\n技术详情：' + e.message,
+                disable_web_page_preview: true
+            }
+        }]
+        return await bot.answerInlineQuery(msg.id, result, {
+            next_offset: '',
+            cache_time: 5, //on production env
+        })
     }
 }
 
@@ -165,6 +203,17 @@ async function processInlineByCategory(msg, bot) {
         let result = await comlib.getRecByTag(query)
         const total_length = result.length
         let result_array = []
+        result = result.sort((a, b) => {
+            const ca = a.member_count || 0
+            const cb = b.member_count || 0
+            if (ca > cb) {
+                return -1
+            } else if (ca == cb) {
+                return 0
+            } else if (ca < cb) {
+                return 1
+            }
+        })
         result = result.slice(offset, offset + single_inline_threshold)
         result.forEach(ret => {
             const {
@@ -233,13 +282,13 @@ async function processInlineQuery(msg, type, bot) {
                 id: '403',
                 title: `您没有通过身份认证或已被封禁，无法使用此功能。`,
                 input_message_content: {
-                    message_text: '请通过身份验证后再使用此功能。\n\nhttps://t.me/zh_groups_bot',
+                    message_text: '请通过身份验证后再使用此功能，验证后请等待 10 秒钟生效。\n\nhttps://t.me/zh_groups_bot',
                     disable_web_page_preview: true
                 }
             }]
             return await bot.answerInlineQuery(msg.id, result, {
                 next_offset: '',
-                cache_time: 300, //on production env
+                cache_time: 10, //on production env
             })
         }
     } catch (e) {
