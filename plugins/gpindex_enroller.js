@@ -7,6 +7,12 @@ var session = {};
 var _e, comlib, _ga
 var tags = require('../config.gpindex.json')['gpindex_tags'];
 
+/**
+ * Process runtime error (friendly)
+ * @param {object} msg 
+ * @param {object} bot 
+ * @param {error} err 
+ */
 function errorProcess(msg, bot, err) {
     if (err == 'notValidated') return
     var errorlog = '```\n' + err.stack + '```\n';
@@ -21,6 +27,12 @@ function errorProcess(msg, bot, err) {
     purgeState(msg, 'errrpt', bot);
 }
 
+/**
+ * Send "Choose the Group" hint
+ * @param {object} msg 
+ * @param {array} result 
+ * @param {object} bot 
+ */
 async function startEnrollment(msg, result, bot) {
     // Check state
     if (!session[msg.from.id]) {
@@ -42,7 +54,7 @@ async function startEnrollment(msg, result, bot) {
                                     }],
                                     [{
                                         text: langres['buttonEnrollChannelReadme'],
-                                        url: langres['linkChannelReadme']
+                                        callback_data: 'enroller_manual_channel'
                                     }]
                                 ]
                             }
@@ -65,6 +77,12 @@ async function startEnrollment(msg, result, bot) {
 
 }
 
+/**
+ * Direct the creator to PM interface
+ * @param {object} msg 
+ * @param {array} result 
+ * @param {object} bot 
+ */
 async function groupChosen(msg, result, bot) {
     // Check state
     var uid = msg.from.id,
@@ -96,7 +114,7 @@ async function groupChosen(msg, result, bot) {
             session[uid] = {
                 status: 'pending_enroll_pm'
             }
-            comlib.setLock(uid);
+            comlib.setLock(uid)
         } catch (e) {
             return errorProcess(msg, bot, e);
         }
@@ -113,7 +131,10 @@ async function groupSelected(msg, result, bot) {
     if (session[uid] && session[uid].status == 'pending_enroll_pm' && uid == sid && gid < 0) {
         // do shit posting
         try {
-            const chat = await bot.getChat(gid)
+            let chat = await bot.getChat(gid)
+            delete chat['pinned_message']
+            delete chat['all_members_are_administrators']
+            delete chat['invite_link']
             session[uid] = {
                 status: 'enrolling',
                 argu: gid
@@ -125,6 +146,34 @@ async function groupSelected(msg, result, bot) {
     } else {
         bot.sendMessage(msg.chat.id, langres['infoMalState'])
     }
+}
+
+async function checkChannelEnrollCondition(msg, bot) {
+    if (msg.chat.id < 0) return
+    if (session[msg.from.id]) return
+    const channel_id = msg.forward_from_chat.id
+    const record = await comlib.getRecord(channel_id)
+    if (record && record.creator != msg.from.id)
+        return
+    let user_status
+    try {
+        user_status = (await bot.getChatMember(channel_id, msg.from.id)).status
+    } catch (e) {
+        return await bot.sendMessage(msg.chat.id, langres['errorBotIsNotChannelAdmin'])
+    }
+    if (user_status != 'creator') {
+        return await bot.sendMessage(msg.chat.id, langres['errorNotCreator'])
+    }
+    const channel_data = await bot.getChat(channel_id)
+    delete channel_data['pinned_message']
+    delete channel_data['all_members_are_administrators']
+    delete channel_data['invite_link']
+    session[msg.from.id] = {
+        status: 'enrolling',
+        argu: channel_id
+    }
+    comlib.setLock(msg.from.id)
+    return processEnrollWaitTag(msg.from.id, channel_data, msg, bot);
 }
 
 async function processEnrollWaitTag(uid, ret, msg, bot) {
@@ -166,10 +215,12 @@ async function processEnrollWaitDescription(uid, ret, msg, bot) {
         if (ret.description) {
             message += `\n\n${langres['promptCurrentDesc']}\n${ret.description}`
             options.reply_markup = {
-                inline_keyboard: [[{
-                    text: langres['buttonUseGroupDescription'],
-                    callback_data: 'enroller_usecurrentdesc'
-                }]]
+                inline_keyboard: [
+                    [{
+                        text: langres['buttonUseGroupDescription'],
+                        callback_data: 'enroller_usecurrentdesc'
+                    }]
+                ]
             }
         }
         await bot.sendMessage(uid, message, options)
@@ -217,52 +268,53 @@ async function processEnrollPublic(uid, groupinfo, msg, bot) {
     }
 }
 
-function processEnrollPrivateWaitLink(uid, groupinfo, msg, bot) {
-    bot.sendMessage(uid, langres['promptSendLink'])
-        .then((msg) => {
-            session[uid] = {
-                status: 'waitforlink',
-                argu: groupinfo
-            };
-        }).catch((err) => {
-            errorProcess(msg, bot, err)
-        });
+async function processEnrollPrivateWaitLink(uid, groupinfo, msg, bot) {
+    try {
+        await bot.sendMessage(uid, langres['promptSendLink'])
+        session[uid] = {
+            status: 'waitforlink',
+            argu: groupinfo
+        }
+    } catch (err) {
+        errorProcess(msg, bot, err)
+    }
 }
 
-function processLink(msg, result, bot) {
+async function processLink(msg, result, bot) {
     var link = result[1];
     if (session[msg.from.id])
         if (session[msg.from.id].status == 'waitforlink') {
             var newinfo = session[msg.from.id].argu;
             newinfo['invite_link'] = link;
-            processEnrollPrivate(msg.from.id, newinfo, msg, bot);
+            return processEnrollPrivate(msg.from.id, newinfo, msg, bot);
         }
 }
 
-function processEnrollPrivate(uid, groupinfo, msg, bot) {
-    var confirmtext = util.format(langres['confirmPrivateGroupInfo'], groupinfo.id, groupinfo.title, groupinfo.invite_link, groupinfo.tag, groupinfo.desc);
-    groupinfo.is_public = false;
-    bot.sendMessage(uid, confirmtext, {
-        reply_markup: {
-            inline_keyboard: [
-                [{
-                    text: langres['buttonConfirm'],
-                    callback_data: 'enroller_confirm_enroll'
-                }, {
-                    text: langres['buttonCancel'],
-                    callback_data: 'enroller_cancel'
-                }]
-            ],
-            hide_keyboard: true
-        }
-    }).then((msg) => {
+async function processEnrollPrivate(uid, groupinfo, msg, bot) {
+    try {
+        var confirmtext = util.format(langres['confirmPrivateGroupInfo'], groupinfo.id, groupinfo.title, groupinfo.invite_link, groupinfo.tag, groupinfo.desc);
+        groupinfo.is_public = false;
+        await bot.sendMessage(uid, confirmtext, {
+            reply_markup: {
+                inline_keyboard: [
+                    [{
+                        text: langres['buttonConfirm'],
+                        callback_data: 'enroller_confirm_enroll'
+                    }, {
+                        text: langres['buttonCancel'],
+                        callback_data: 'enroller_cancel'
+                    }]
+                ],
+                hide_keyboard: true
+            }
+        })
         session[uid] = {
             status: 'confirmmsg',
             argu: groupinfo
-        };
-    }).catch((err) => {
+        }
+    } catch (err) {
         errorProcess(msg, bot, err)
-    });
+    }
 }
 
 function purgeState(msg, result, bot) {
@@ -275,58 +327,226 @@ function purgeState(msg, result, bot) {
     });
 }
 
+// Callback Functions
 
+async function enrollerConfirmEnroll(msg, bot) {
+    //check state
+    if (session[msg.from.id] && session[msg.from.id].status == "confirmmsg") {
+        var groupinfo = session[msg.from.id].argu
+        groupinfo.creator = msg.from.id;
+        var ret = comlib.doEnrollment(groupinfo);
+        if (ret == 'new_public_queue') {
+            try {
+                delete session[msg.from.id];
+                comlib.unsetLock(msg.from.id);
+                await bot.answerCallbackQuery({
+                    callback_query_id: msg.id,
+                    text: langres['dialogPubDone'],
+                    show_alert: true
+                })
+                return await bot.editMessageText(langres['infoPubDoneGCD'], {
+                    chat_id: msg.message.chat.id,
+                    message_id: msg.message.message_id
+                })
+            } catch (e) {
+                errorProcess(msg.message, bot, e);
+            }
+        } else if (ret == 'new_private_queue') {
+            try {
+                delete session[msg.from.id];
+                comlib.unsetLock(msg.from.id);
+                await bot.answerCallbackQuery({
+                    callback_query_id: msg.id,
+                    text: langres['dialogPrivDone'],
+                    show_alert: true
+                })
+                return await bot.editMessageText(langres['infoPrivDoneGCD'], {
+                    chat_id: msg.message.chat.id,
+                    message_id: msg.message.message_id
+                })
+            } catch (e) {
+                errorProcess(msg.message, bot, e);
+            }
+        }
+    }
+}
+
+async function enrollerCancel(msg, bot) {
+    delete session[msg.from.id];
+    comlib.unsetLock(msg.from.id);
+    return await bot.editMessageText(langres['infoSessionCleared'], {
+        chat_id: msg.message.chat.id,
+        message_id: msg.message.message_id
+    });
+}
+
+async function displayChannelManual(msg, bot) {
+    bot.answerCallbackQuery({
+        callback_query_id: msg.id,
+        text: ''
+    })
+    return bot.sendMessage(msg.from.id, langres['infoHowToIndexChannel'])
+}
 
 async function processCallbackButton(msg, type, bot) {
     switch (msg.data) {
         case "enroller_confirm_enroll":
-            //check state
-            if (session[msg.from.id] && session[msg.from.id].status == "confirmmsg") {
-                var groupinfo = session[msg.from.id].argu
-                groupinfo.creator = msg.from.id;
-                var ret = comlib.doEnrollment(groupinfo);
-                if (ret == 'new_public_queue') {
-                    delete session[msg.from.id];
-                    comlib.unsetLock(msg.from.id);
-                    bot.answerCallbackQuery(msg.id, langres['dialogPubDone'], true)
-                        .then(ret => {
-                            return bot.editMessageText(langres['infoPubDoneGCD'], {
-                                chat_id: msg.message.chat.id,
-                                message_id: msg.message.message_id
-                            })
-                        }).catch((e) => {
-                            errorProcess(msg.message, bot, e);
-                        });
-                } else if (ret == 'new_private_queue') {
-                    delete session[msg.from.id];
-                    comlib.unsetLock(msg.from.id);
-                    return bot.answerCallbackQuery(msg.id, langres['dialogPrivDone'], true)
-                        .then(ret => {
-                            return bot.editMessageText(langres['infoPrivDoneGCD'], {
-                                chat_id: msg.message.chat.id,
-                                message_id: msg.message.message_id
-                            })
-                        }).catch((e) => {
-                            errorProcess(msg.message, bot, e);
-                        });
-                }
-            }
-            break;
+            return enrollerConfirmEnroll(msg, bot)
         case "enroller_cancel":
-            delete session[msg.from.id];
-            comlib.unsetLock(msg.from.id);
-            return bot.editMessageText(langres['infoSessionCleared'], {
-                chat_id: msg.message.chat.id,
-                message_id: msg.message.message_id
-            });
-        case 'enroller_usecurrentdesc': 
-            bot.answerCallbackQuery(msg.id, '')    
-            return processEnrollUseCurrentDesc(msg, bot)    
-                
+            return enrollerCancel(msg, bot)
+        case 'enroller_usecurrentdesc':
+            bot.answerCallbackQuery({
+                callback_query_id: msg.id,
+                text: ''
+            })
+            return processEnrollUseCurrentDesc(msg, bot)
+        case 'enroller_manual_channel':
+            return displayChannelManual(msg, bot)
+    }
+
+    // common with param
+
+    const [operator, param] = msg.data.split(':')
+    if (operator == 'upd') {
+        let [category, gid] = param.split('&')
+        gid = parseInt(gid)
+        switch (category) {
+            case 'common':
+            case 'desc':
+            case 'tag':
+            case 'link':
+            case 'ref':
+        }
     }
 }
 
-function updatePrivateLink(msg, result, bot) {
+// Resource Included
+function generateUpdateDialog_MainPage(record) {
+    let ret = {
+        text: '',
+        reply_markup: {}
+    }
+    switch (record.type) {
+        case 'group':
+            ret.text += '群组'
+            break
+        case 'supergroup':
+            ret.text += '超级群组'
+            break
+        case 'channel':
+            ret.text += '频道'
+            break
+    }
+    ret.text += ` ${record.title}\n`
+    ret.text += `类别：${record.is_public ? '公开' : '私有'}\n`
+    if (record.is_public)
+        ret.text += `标识：@${record.username}\n`
+    else
+        ret.text += `链接：${record.invite_link}\n`
+    if (record.member_count)
+        ret.text += `成员数：${record.member_count}\n`
+    ret.text += `当前分类：#${record.tag}\n`
+    ret.text += `当前简介：\n${record.desc}\n\n`
+    if (record.extag && Object.keys(record.extag).length > 0) {
+        ret.text += `当前启用特性：\n`
+        for (let feat of Object.keys(record.extag)) {
+            if (!feat.match(/^feature:/)) continue
+            if (record.extag[feat]) {
+                ret.text += `${feat}\n`
+            }
+        }
+    }
+    ret.text += `请选择操作：`
+    let buttons = []
+    if (record.is_public) {
+        buttons.push([{
+                text: '更新数据',
+                callback_data: `upd:common&${record.id}`
+            },
+            {
+                text: '变更分类',
+                callback_data: `upd:tag&${record.id}`
+            }
+        ], [{
+                text: '变更简介',
+                callback_data: `upd:desc&${record.id}`
+            },
+            {
+                text: '管理功能说明',
+                url: 'https://wfjsw.gitbooks.io/tgcn-groupindex-reference/content/administration-functions.html'
+            }
+        ])
+    } else {
+        buttons.push([{
+                text: '更新数据',
+                callback_data: `upd:common&${record.id}`
+            },
+            {
+                text: '变更分类',
+                callback_data: `upd:tag&${record.id}`
+            }
+        ], [{
+                text: '变更简介',
+                callback_data: `upd:desc&${record.id}`
+            },
+            {
+                text: '变更邀请链接',
+                callback_data: `upd:link&${record.id}`
+            }
+        ], [{
+            text: '管理功能说明',
+            url: 'https://wfjsw.gitbooks.io/tgcn-groupindex-reference/content/administration-functions.html'
+        }])
+    }
+    buttons.push([{
+        text: '刷新',
+        callback_data: `upd:ref&${record.id}`
+    }])
+    ret.reply_markup = {
+        inline_keyboard: buttons
+    }
+    return ret
+}
+// End Resource Included
+
+async function pushUpdateDialogPM(msg, result, bot) {
+    try {
+        const gid = parseInt(result[1])
+        const uid = msg.from.id
+        const record = await comlib.getRecord(gid)
+        if (!record) return
+        if (record.creator != uid) return
+        let dialog = generateUpdateDialog_MainPage(record)
+        return await bot.sendMessage(msg.chat.id, dialog.text, {
+            reply_markup: dialog.reply_markup,
+            disable_web_page_preview: true
+        })
+    } catch (e) {
+        console.error(e.stack)
+        return await bot.sendMessage(msg.chat.id, '无法发送控制面板。')
+    }
+}
+
+async function pushUpdateDialogGroup(msg, result, bot) {
+    const gid = msg.chat.id
+    const uid = msg.from.id
+    const record = await comlib.getRecord(gid)
+    if (!record) return
+    if (record.creator != uid) return
+    let dialog = generateUpdateDialog_MainPage(record)
+    try {
+        await bot.sendMessage(uid, dialog.text, {
+            reply_markup: dialog.reply_markup,
+            disable_web_page_preview: true
+        })
+        return await bot.sendMessage(gid, '控制面板已经私聊给你了。')
+    } catch (e) {
+        console.error(e.stack)
+        return await bot.sendMessage(gid, '无法发送控制面板。请检查您是否已将本机器人屏蔽。')
+    }
+}
+
+async function updatePrivateLink(msg, result, bot) {
     if (msg.chat.id < 0) {
         var updatenotify = {
             id: msg.chat.id,
@@ -473,18 +693,21 @@ function enrollmentOptOut(msg, result, bot) {
 function processText(msg, type, bot) {
     var input = msg.text;
     try {
-        if (session[msg.from.id])
+        if (session[msg.from.id]) {
             if (session[msg.from.id].status == 'waitfortag' && tags.indexOf(input) > -1) {
                 var newinfo = session[msg.from.id].argu;
                 newinfo['tag'] = input;
                 processEnrollWaitDescription(msg.from.id, newinfo, msg, bot);
             } else if (session[msg.from.id].status == 'waitfortag' && tags.indexOf(input) == -1) {
-            bot.sendMessage(msg.chat.id, util.format(langres['errorInvaildTag'], tags.join('\n')));
-        } else if (session[msg.from.id].status == 'waitfordesc') {
-            var newinfo = session[msg.from.id].argu;
-            newinfo['desc'] = input;
-            if (newinfo.username) processEnrollPublic(msg.from.id, newinfo, msg, bot); // is public group
-            else processEnrollPrivateWaitLink(msg.from.id, newinfo, msg, bot); // is private group
+                bot.sendMessage(msg.chat.id, util.format(langres['errorInvaildTag'], tags.join('\n')));
+            } else if (session[msg.from.id].status == 'waitfordesc') {
+                var newinfo = session[msg.from.id].argu;
+                newinfo['desc'] = input;
+                if (newinfo.username) processEnrollPublic(msg.from.id, newinfo, msg, bot); // is public group
+                else processEnrollPrivateWaitLink(msg.from.id, newinfo, msg, bot); // is private group
+            }
+        } else if (msg.forward_from_chat) {
+            return checkChannelEnrollCondition(msg, bot)
         }
     } catch (e) {
         errorProcess(msg, bot, e);
@@ -613,7 +836,8 @@ module.exports = {
         [/^\/enroll/, startEnrollment],
         [/^\/start grpselect$/, groupChosen],
         [/^\/start@.+ grpselect$/, groupChosen],
-        [/^\/start enroll=([0-9-]{6,})$/, groupSelected],
+        [/^\/start enroll=(-[0-9]{6,})$/, groupSelected],
+        [/^\/start panel=(-[0-9]{6,})$/, pushUpdateDialogPM],
         [/^\/cancel$/, purgeState],
         ['callback_query', processCallbackButton],
         [/^(https:\/\/telegram.me\/joinchat\/.+)$/, processLink],
@@ -624,6 +848,7 @@ module.exports = {
         [/^\/grouplink_update$/, missingParameter],
         //[/^\/grouplink_update (http:\/\/telegra.ph\/.+)$/, updatePrivateLink],
         [/^\/update$/, updateInfo],
+        [/^\/panel$/, pushUpdateDialogGroup],
         [/^\/tag_update (.+)$/, updateTag],
         [/^\/tag_update$/, missingParameter],
         [/^\/desc_update ((?:.|\n)+)/m, updateDesc],

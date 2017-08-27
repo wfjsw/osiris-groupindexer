@@ -1,14 +1,26 @@
 // Requires Quesbank
 
-const bank_a = require('../resources/quesbank_shzyhxjzg.json')
-const bank_a_name = '社会主义核心价值观'
-const bank_b = require('../resources/quesbank_zbzyhxjzg.json')
-const bank_b_name = '资本主义核心价值观'
+const he = require('he').encode
+const libQuesbank = require('../lib/quesbank').quesBankUtil
 
-var _e, comlib, _ga, quesbank_a, quesbank_b
+const banks = [{
+        name: '社会主义核心价值观',
+        bank: new libQuesbank(require('../resources/quesbank_shzyhxjzg.json')),
+        answer_per_session: 1, // 每次提供 1 个真答案
+        dummy_per_session: 15 // 每次提供 15 个假答案
+    },
+    {
+        name: '资本主义核心价值观',
+        bank: new libQuesbank(require('../resources/quesbank_zbzyhxjzg.json')),
+        answer_per_session: 1,
+        dummy_per_session: 15
+    },
+]
+const buttons_per_line = 4 // *** 这个 4 调整每行按钮数 ***
+
+var _e, comlib, _ga
 
 var wrongcount = {}
-var locked = {}
 
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -24,7 +36,9 @@ async function processUserTest(msg, type, bot) {
     const is_user_validated = !!(await comlib.UserFlag.queryUserFlag(uid, 'validated'))
     if (is_user_validated) {
         _ga.tEvent(msg.from, 'ingroupvalidation', 'ingroupvalidation.noNeed')
-        const noneedvalidate = await _e.bot.sendMessage(msg.chat.id, `用户 ${msg.from.first_name} 已经通过日人民报验证，无需重复验证。`)
+        const noneedvalidate = await _e.bot.sendMessage(msg.chat.id, `用户 <a href="tg://user?id=${msg.from.id}">${he(msg.from.first_name)}</a> 已经通过日人民报验证，无需重复验证。`, {
+            parse_mode: 'HTML'
+        })
         return setTimeout(() => {
             bot.deleteMessage(msg.chat.id, noneedvalidate.message_id)
                 .catch(() => {})
@@ -35,16 +49,18 @@ async function processUserTest(msg, type, bot) {
             await bot.restrictChatMember(msg.chat.id, uid, {
                 can_send_messages: false
             })
-            let question = quesbank_a.generateQuestion(1, 15)
+            let this_bank_id = Math.floor(Math.random() * (banks.length - 1))
+            let this_bank = banks[this_bank_id]
+            let question = this_bank.bank.generateQuestion(this_bank.answer_per_session, this_bank.dummy_per_session)
             let row = [],
                 i = 0;
             let col = [];
             question.forEach((child, index) => {
                 col.push({
-                    text: child,
-                    callback_data: `igv:${uid}&${child}&${index}`
+                    text: child.v,
+                    callback_data: `igv:${this_bank_id}&${uid}&${child.k}&${index}`
                 })
-                if (col.length == 4) {
+                if (col.length == buttons_per_line) {
                     row.push(col);
                     col = [];
                 }
@@ -58,7 +74,8 @@ async function processUserTest(msg, type, bot) {
             await bot.restrictChatMember(msg.chat.id, uid, {
                 can_send_messages: false
             })
-            await bot.sendMessage(msg.chat.id, `您好 ${msg.from.first_name}，欢迎来到 ${msg.chat.title}，该群组启用了群内防清真验证，请回答以下问题：\n\n请从下列按钮中选取 ${bank_a_name}`, {
+            await bot.sendMessage(msg.chat.id, `您好 <a href="tg://user?id=${msg.from.id}">${he(msg.from.first_name)}</a>，欢迎来到 ${msg.chat.title}，该群组启用了群内防清真验证，请回答以下问题：\n\n请从下列按钮中选取 ${this_bank.name}`, {
+                parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: row
                 }
@@ -75,16 +92,22 @@ async function processUserTest(msg, type, bot) {
 async function processAnswer(msg, type, bot) {
     let [operator, query] = msg.data.split(':')
     if (operator != 'igv') return
-    let [user, answer, index] = query.split('&')
+    let [last_bank_id, user, answer, index] = query.split('&')
+    last_bank_id = parseInt(last_bank_id)
     user = parseInt(user)
     index = parseInt(index)
     if (isNaN(wrongcount[`${msg.message.chat.id}:${msg.from.id}`])) wrongcount[`${msg.message.chat.id}:${msg.from.id}`] = 0
     if (msg.from.id != user) {
-        return await bot.answerCallbackQuery(msg.id, '请勿代人答题。', false)
+        return await bot.answerCallbackQuery({
+            callback_query_id: msg.id,
+            text: '请勿代人答题。',
+            show_alert: false
+        })
     }
     // if (processing[`${msg.message.chat.id}:${msg.from.id}`]) return
     // processing[`${msg.message.chat.id}:${msg.from.id}`] = true
-    const is_correct = quesbank_a.validateAnswer(answer) || quesbank_b.validateAnswer(answer)
+    let last_bank = banks[last_bank_id]
+    const is_correct = last_bank.bank.validateAnswer(answer)
     if (is_correct) {
         _ga.tEvent(msg.from, 'ingroupvalidation', 'ingroupvalidation.responseCorrect')
         await bot.restrictChatMember(msg.message.chat.id, msg.from.id, {
@@ -97,32 +120,31 @@ async function processAnswer(msg, type, bot) {
         delete wrongcount[`${msg.message.chat.id}:${msg.from.id}`]
         // processing[`${msg.message.chat.id}:${msg.from.id}`] = false
         // delete processing[`${msg.message.chat.id}:${msg.from.id}`]
-        await bot.editMessageText(`${msg.from.first_name} 已通过验证。`, {
+        await bot.editMessageText(`<a href="tg://user?id=${msg.from.id}">${he(msg.from.first_name)}</a> 已通过验证。`, {
             chat_id: msg.message.chat.id,
             message_id: msg.message.message_id,
+            parse_mode: 'HTML'
         })
-        return await bot.answerCallbackQuery(msg.id, '您已通过。', false)
-    } else if (wrongcount[`${msg.message.chat.id}:${msg.from.id}`] < 5) {
+        return await bot.answerCallbackQuery({
+            callback_query_id: msg.id,
+            text: '您已通过。',
+            show_alert: false
+        })
+    } else /* if (wrongcount[`${msg.message.chat.id}:${msg.from.id}`] < 5) */ {
         try {
             await sleep(500)
             const this_err_count = ++wrongcount[`${msg.message.chat.id}:${msg.from.id}`]
-            let quesbank, qbname
-            if (wrongcount[`${msg.message.chat.id}:${msg.from.id}`] < 3) {
-                quesbank = quesbank_a
-                qbname = bank_a_name
-            } else {
-                quesbank = quesbank_b
-                qbname = bank_b_name
-            }
-            let question = quesbank.generateQuestion(1, 15, index)
+            let this_bank_id = Math.floor(Math.random() * (banks.length - 1))
+            let this_bank = banks[this_bank_id]
+            let question = this_bank.bank.generateQuestion(this_bank.answer_per_session, this_bank.dummy_per_session, index)
             let row = []
             let col = []
             question.forEach((child, idx) => {
                 col.push({
-                    text: child,
-                    callback_data: `igv:${msg.from.id}&${child}&${idx}`
+                    text: child.v,
+                    callback_data: `igv:${this_bank_id}&${msg.from.id}&${child.k}&${idx}`
                 })
-                if (col.length == 4) {
+                if (col.length == buttons_per_line) {
                     row.push(col);
                     col = [];
                 }
@@ -132,40 +154,47 @@ async function processAnswer(msg, type, bot) {
                 col = [];
             }
             _ga.tEvent(msg.from, 'ingroupvalidation', 'ingroupvalidation.responseWrong')
-            await bot.editMessageText(`您好 ${msg.from.first_name}，欢迎来到 ${msg.message.chat.title}，该群组启用了群内防清真验证，请回答以下问题：\n\n请从下列按钮中选取 ${qbname}\n您已答错 ${this_err_count} 次`, {
+            await bot.editMessageText(`您好 <a href="tg://user?id=${msg.from.id}">${he(msg.from.first_name)}</a>，欢迎来到 ${msg.message.chat.title}，该群组启用了群内防清真验证，请回答以下问题：\n\n请从下列按钮中选取 ${this_bank.name}\n您已答错 ${this_err_count} 次`, {
                 message_id: msg.message.message_id,
                 chat_id: msg.message.chat.id,
+                parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: row
                 }
             })
             // processing[`${msg.message.chat.id}:${msg.from.id}`] = false
             // delete processing[`${msg.message.chat.id}:${msg.from.id}`]
-            return await bot.answerCallbackQuery(msg.id, '答案错误。', true)
+            return await bot.answerCallbackQuery({
+                callback_query_id: msg.id,
+                text: '答案错误。',
+                show_alert: true
+            })
         } catch (e) {
-            console.error(e)
-            _ga.tException(msg.from, e, true)
+            console.error(e.stack)
+            _ga.tException(msg.from, e.message, true)
         }
-    } else {
-        if (locked[msg.from.id]) {
-            locked[msg.from.id].push(msg.message.chat.id)
-        } else {
-            locked[msg.from.id] = []
-            locked[msg.from.id].push(msg.message.chat.id)
-        }
-        return await bot.editMessageText(`您好 ${msg.from.first_name}，您已失败超过 5 次，请使用 日人民报 验证方式。`, {
-            message_id: msg.message.message_id,
-            chat_id: msg.message.chat.id,
-            reply_markup: {
-                inline_keyboard: [[{
-                    text: '前往验证',
-                    url: `https://t.me/${_e.me.username}?start=validateuserchallenge`
-                }]]
-            }
-        })
     }
+    /* else {
+            if (locked[msg.from.id]) {
+                locked[msg.from.id].push(msg.message.chat.id)
+            } else {
+                locked[msg.from.id] = []
+                locked[msg.from.id].push(msg.message.chat.id)
+            }
+            return await bot.editMessageText(`您好 ${msg.from.first_name}，您已失败超过 5 次，请使用 日人民报 验证方式。`, {
+                message_id: msg.message.message_id,
+                chat_id: msg.message.chat.id,
+                reply_markup: {
+                    inline_keyboard: [[{
+                        text: '前往验证',
+                        url: `https://t.me/${_e.me.username}?start=validateuserchallenge`
+                    }]]
+                }
+            })
+        }*/
 }
 
+/*
 async function testUser(msg, type, bot) {
     async function passThis(gid, uid) {
         await bot.sendMessage(gid, `该用户已通过 日人民报 验证。`)
@@ -185,18 +214,17 @@ async function testUser(msg, type, bot) {
     })
     delete locked[msg.from.id]
 }
+*/
 
 module.exports = {
     init: (e) => {
         _e = e
         comlib = _e.libs['gpindex_common']
         _ga = e.libs['ga']
-        quesbank_a = new e.libs['quesbank'].quesBankUtil(bank_a)
-        quesbank_b = new e.libs['quesbank'].quesBankUtil(bank_b)
     },
     run: [
         ['new_chat_member', processUserTest],
         ['callback_query', processAnswer],
-        ['text', testUser]
+        //['text', testUser]
     ]
 }

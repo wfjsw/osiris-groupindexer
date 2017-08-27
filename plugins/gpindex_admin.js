@@ -99,6 +99,9 @@ async function doImportPublicGroup(msg, result, bot) {
                         ginfo.is_public = true
                         ginfo.tag = tag
                         ginfo.desc = desc
+                        delete ginfo['pinned_message']
+                        delete ginfo['all_members_are_administrators']
+                        delete ginfo['invite_link']
                         return true
                     } else {
                         return false
@@ -269,6 +272,15 @@ async function setGroupExTag(msg, result, bot) {
         }
 }
 
+async function getUserMention(msg, result, bot) {
+    if (msg.chat.id != admin_id) return
+    const uid = parseInt(result[1])
+    const md = `[${uid}](tg://user?id=${uid})`
+    return bot.sendMessage(msg.chat.id, md, {
+        parse_mode: 'Markdown'
+    })
+}
+
 
 module.exports = {
     init: (e) => {
@@ -290,6 +302,7 @@ module.exports = {
         [/^\/setflag ([0-9-]{6,}|reply) ([^\s]+) ([^\s]+)$/, setUserFlag],
         [/^\/getextag ([0-9-]{6,}|reply) ([^\s]+)$/, getGroupExTag],
         [/^\/setextag ([0-9-]{6,}|reply) ([^\s]+) ([^\s]+)$/, setGroupExTag],
-        [/^\/sendmsg ([0-9-]{6,}|@[a-zA-Z0-9_]{5,}|reply) ((?:.|\n)+)/m, sendMsg]
+        [/^\/sendmsg ([0-9-]{6,}|@[a-zA-Z0-9_]{5,}|reply) ((?:.|\n)+)/m, sendMsg],
+        [/^\/getmention ([0-9]{6,})$/, getUserMention]
     ]
 }

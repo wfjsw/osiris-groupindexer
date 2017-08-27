@@ -86,7 +86,10 @@ function processCallbackButton(msg, type, bot) {
                 var creator = session[gid].creator;
                 delete session[gid];
                 _e.libs['gpindex_common'].doValidate(gid, is_update, is_silent);
-                bot.answerCallbackQuery(msg.id, 'Validated!');
+                bot.answerCallbackQuery({
+                    callback_query_id: msg.id,
+                    text: 'Validated!'
+                });
                 bot.editMessageText(`${msg.message.text}\n\n✅Validated by ${msg.from.first_name} ${msg.from.last_name}`, {
                     chat_id: msg.message.chat.id,
                     message_id: msg.message.message_id,
@@ -102,7 +105,10 @@ function processCallbackButton(msg, type, bot) {
                 var creator = session[gid].creator;
                 delete session[gid];
                 _e.libs['gpindex_common'].doValidate(gid, is_update, is_silent);
-                bot.answerCallbackQuery(msg.id, 'Validated!');
+                bot.answerCallbackQuery({
+                    callback_query_id: msg.id,
+                    text: 'Validated!'
+                });
                 bot.editMessageText(`${msg.message.text}\n\n✅Validated(silent) by ${msg.from.first_name} ${msg.from.last_name}`, {
                     chat_id: msg.message.chat.id,
                     message_id: msg.message.message_id,
@@ -116,7 +122,10 @@ function processCallbackButton(msg, type, bot) {
                 var is_update = session[gid].is_update;
                 var creator = session[gid].creator;
                 delete session[gid];
-                bot.answerCallbackQuery(msg.id, 'Rejected!');
+                bot.answerCallbackQuery({
+                    callback_query_id: msg.id,
+                    text: 'Rejected!'
+                });
                 bot.editMessageText(`${msg.message.text}\n\n❎Rejected by ${msg.from.first_name} ${msg.from.last_name}`, {
                     chat_id: msg.message.chat.id,
                     message_id: msg.message.message_id,
@@ -126,7 +135,10 @@ function processCallbackButton(msg, type, bot) {
                 else bot.sendMessage(creator, "您的群组信息未通过验证。请重试。");
         }
     } else if (valid_operator.indexOf(operator) > -1) {
-        bot.answerCallbackQuery(msg.id, 'Session Outdated!');
+        bot.answerCallbackQuery({
+            callback_query_id: msg.id,
+            text: 'Session Outdated!'
+        });
     }
 }
 

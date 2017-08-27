@@ -9,97 +9,138 @@ const admin_id = require('../config.gpindex.json')['gpindex_admin'];
  */
 
 
-async function noSpam(msg, bot, operator) {
+async function noSpam(user, gid, bot, operator) {
     switch (operator) {
         case 'enable':
-            _ga.tEvent(msg.from, 'featureswitch', 'featureswitch.noSpam.enabled')
-            await comlib.GroupExTag.setGroupExTag(msg.chat.id, 'feature:nospam_disabled', 0)
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.noSpam.enabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:nospam_disabled', 0)
             break
         case 'disable':
-            _ga.tEvent(msg.from, 'featureswitch', 'featureswitch.noSpam.disabled')
-            await comlib.GroupExTag.setGroupExTag(msg.chat.id, 'feature:nospam_disabled', 1)
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.noSpam.disabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:nospam_disabled', 1)
             break
     }
-    return await bot.sendMessage(msg.chat.id, '已成功更改。', {
-        reply_to_message_id: msg.message_id
-    })
+    return '已成功更改。'
 }
 
-async function noBlue(msg, bot, operator) {
+async function noBlue(user, gid, bot, operator) {
     switch (operator) {
         case 'enable':
-            _ga.tEvent(msg.from, 'featureswitch', 'featureswitch.noBlue.enabled')
-            await comlib.GroupExTag.setGroupExTag(msg.chat.id, 'feature:noblue_disabled', 0)
-            break
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.noBlue.enabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:noblue_disabled', 0)
+            return '已成功启用机器人命令自动删除。必需权限：Delete Messages'
         case 'disable':
-            _ga.tEvent(msg.from, 'featureswitch', 'featureswitch.noBlue.disabled')
-            await comlib.GroupExTag.setGroupExTag(msg.chat.id, 'feature:noblue_disabled', 1)
-            break
-    }
-    return await bot.sendMessage(msg.chat.id, '已成功更改。', {
-        reply_to_message_id: msg.message_id
-    })
-}
-
-async function dynLink(msg, bot, operator) {
-    if (msg.chat.username) {
-        return await bot.sendMessage(msg.chat.id, '抱歉，该功能仅对私有群组有效。', {
-            reply_to_message_id: msg.message_id
-        })
-    }
-    switch (operator) {
-        case 'enable':
-            _ga.tEvent(msg.from, 'featureswitch', 'featureswitch.dynLink.enabled')
-            await comlib.GroupExTag.setGroupExTag(msg.chat.id, 'feature:dynlink', 1)
-            return await bot.sendMessage(msg.chat.id, '已成功启用动态链接。\n在动态链接启用时，请确保机器人在群中任管理员，且具有 Add Users 权限。', {
-                reply_to_message_id: msg.message_id
-            })
-        case 'disable':
-            _ga.tEvent(msg.from, 'featureswitch', 'featureswitch.dynLink.disabled')
-            await comlib.GroupExTag.setGroupExTag(msg.chat.id, 'feature:dynlink', 0)
-            return await bot.sendMessage(msg.chat.id, '已成功关闭。', {
-                reply_to_message_id: msg.message_id
-            })
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.noBlue.disabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:noblue_disabled', 1)
+            return '已成功关闭。'
     }
 }
 
-async function inGroupValidation(msg, bot, operator) {
+async function dynLink(user, gid, bot, operator) {
     switch (operator) {
         case 'enable':
-            _ga.tEvent(msg.from, 'featureswitch', 'featureswitch.inGroupValidation.enabled')
-            await comlib.GroupExTag.setGroupExTag(msg.chat.id, 'feature:ingroupvalidation', 1)
-            return await bot.sendMessage(msg.chat.id, '已成功启用加群防清真验证。\n在加群防清真验证启用时，请确保机器人在群中任管理员，且具有 Ban Users 权限。', {
-                reply_to_message_id: msg.message_id
-            })
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.dynLink.enabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:dynlink', 1)
+            return '已成功启用动态链接。\n在动态链接启用时，请确保机器人在群中任管理员，且具有 Add Users 权限。'
         case 'disable':
-            _ga.tEvent(msg.from, 'featureswitch', 'featureswitch.inGroupValidation.disabled')
-            await comlib.GroupExTag.setGroupExTag(msg.chat.id, 'feature:ingroupvalidation', 0)
-            return await bot.sendMessage(msg.chat.id, '已成功关闭。', {
-                reply_to_message_id: msg.message_id
-            })
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.dynLink.disabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:dynlink', 0)
+            return '已成功关闭。'
     }
 }
 
+async function inGroupValidation(user, gid, bot, operator) {
+    switch (operator) {
+        case 'enable':
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.inGroupValidation.enabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:ingroupvalidation', 1)
+            return '已成功启用加群防清真验证。\n在加群防清真验证启用时，请确保机器人在群中任管理员，且具有 Ban Users 权限。'
+        case 'disable':
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.inGroupValidation.disabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:ingroupvalidation', 0)
+            return '已成功关闭。'
+    }
+}
 
-async function switchFeature(msg, result, bot) {
-    if (msg.chat.id > 0) return
-    const record = await comlib.getRecord(msg.chat.id)
-    if (!record) return
-    const is_superadmin = !(['left', 'kicked'].indexOf((await bot.getChatMember(admin_id, msg.from.id)).status) > -1)
-    const is_admin = ['creator', 'administrator'].indexOf((await bot.getChatMember(msg.chat.id, msg.from.id)).status) > -1
-    if (!is_admin && !is_superadmin) return
-    const [operator, feature_name] = result.slice(1)
+async function antiServiceMessage(user, gid, bot, operator) {
+    switch (operator) {
+        case 'enable':
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.antiServiceMsg.enabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:deljoin', 1)
+            return '已成功启用加群消息自动删除。必需权限：Delete Messages'
+        case 'disable':
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.antiServiceMsg.disabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:deljoin', 0)
+            return '已成功关闭。'
+    }
+}
+
+async function switchFeature(user, gid, operator, feature_name, bot) {
     switch (feature_name) {
         case 'nospam':
-            return noSpam(msg, bot, operator)
+            return noSpam(user, gid, bot, operator)
         case 'noblue':
-            return noBlue(msg, bot, operator)
+            return noBlue(user, gid, bot, operator)
         case 'dynlink':
-            return dynLink(msg, bot, operator)
+            return dynLink(user, gid, bot, operator)
         case 'ingroupvalidation':
-            return inGroupValidation(msg, bot, operator)
+            return inGroupValidation(user, gid, bot, operator)
+        case 'deljoin':
+            return antiServiceMessage(user, gid, bot, operator)
     }
 }
+
+async function switchFeatureCmd(msg, result, bot) {
+    if (msg.chat.id > 0) return
+    const record = await comlib.getRecord(msg.chat.id)
+    if (!record) {
+        const message = await bot.sendMessage(msg.chat.id, '受到存储位置限制，只有索引中的群组才能对管理功能进行调整。', {
+            reply_to_message_id: msg.message_id
+        })
+        return setTimeout(() => {
+            bot.deleteMessage(msg.chat.id, message.message_id)
+                .catch(() => {})
+        }, 15 * 1000)
+    }
+    const is_superadmin = !(['left', 'kicked'].indexOf((await bot.getChatMember(admin_id, msg.from.id)).status) > -1)
+    const is_admin = ['creator', 'administrator'].indexOf((await bot.getChatMember(msg.chat.id, msg.from.id)).status) > -1
+    if (!is_admin && !is_superadmin) {
+        const message = await bot.sendMessage(msg.chat.id, '只有群组创建者和管理员才能对管理功能进行调整。', {
+            reply_to_message_id: msg.message_id
+        })
+        return setTimeout(() => {
+            bot.deleteMessage(msg.chat.id, message.message_id)
+                .catch(() => {})
+        }, 15 * 1000)
+    }
+    const [operator, feature_name] = result.slice(1)
+    if (feature_name == 'dynlink' && msg.chat.username) {
+        return '抱歉，该功能仅对私有群组有效。'
+    }
+    const reply = await switchFeature(msg.from, msg.chat.id, operator, feature_name, bot)
+    return await bot.sendMessage(msg.chat.id, reply, {
+        reply_to_message_id: msg.message_id
+    })
+}
+
+/*
+async function switchFeatureButton(msg, type, bot) {
+    // feat:[e|d]&gid
+    let [realm, query] = msg.query.split(':')
+    if (realm != 'feat') return
+    let [operator, gid] = query.split('&')
+    operator = operator == 'e' ? 'enable' : 'disable'
+    gid = parseInt(gid)
+    const record = await comlib.getRecord(msg.chat.id)
+    if (!record) 
+        return await bot.answerCallbackQuery(msg.id, '受到存储位置限制，只有索引中的群组才能对管理功能进行调整。', true)
+    const is_superadmin = !(['left', 'kicked'].indexOf((await bot.getChatMember(admin_id, msg.from.id)).status) > -1)
+    const is_admin = ['creator', 'administrator'].indexOf((await bot.getChatMember(gid, msg.from.id)).status) > -1
+    if (feature_name == 'dynlink' && msg.chat.username) {
+        return '抱歉，该功能仅对私有群组有效。'
+    }
+}
+*/
 
 module.exports = {
     init: (e) => {
@@ -108,6 +149,7 @@ module.exports = {
         _ga = e.libs['ga'];
     },
     run: [
-        [/^\/(enable|disable) ([^\s]+)/, switchFeature]
+        [/^\/(enable|disable) ([^\s]+)/, switchFeatureCmd],
+        // ['callback_query', switchFeatureButton]
     ]
 }

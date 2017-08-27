@@ -3,7 +3,7 @@ var _e, comlib, _ga
 async function updateCount(msg, type, bot) {
     if (msg.chat.id > 0) return
     if (msg.left_chat_member) {
-        if (msg.left_chat_member.id = _e.me.id) {
+        if (msg.left_chat_member.id == _e.me.id) {
             return await comlib.silentUpdate(msg.chat.id, {
                 member_count: require('rethinkdb').literal()
             })
