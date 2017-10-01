@@ -75,6 +75,30 @@ async function antiServiceMessage(user, gid, bot, operator) {
     }
 }
 
+async function antiHalal(user, gid, bot, operator) {
+    switch (operator) {
+        case 'enable':
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.antiHalal.enabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:antihalal', 1)
+            return '已成功启用防清真组件。必需权限：Ban Users, Delete Messages\n\n使用前请先阅读说明：'
+        case 'disable':
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.antiHalal.disabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:antihalal', 0)
+            return '已成功关闭。'
+    }
+} async function antiHalalEnhanced(user, gid, bot, operator) {
+    switch (operator) {
+        case 'enable':
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.antiHalalEnhanced.enabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:antihalalenhanced', 1)
+            return '已成功启用防清真增强组件。本组件必须在 antihalal 组件启用后才能发挥效果。必需权限：Ban Users, Delete Messages'
+        case 'disable':
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.antiHalalEnhanced.disabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:antihalalenhanced', 0)
+            return '已成功关闭。'
+    }
+}
+
 async function switchFeature(user, gid, operator, feature_name, bot) {
     switch (feature_name) {
         case 'nospam':
@@ -83,10 +107,16 @@ async function switchFeature(user, gid, operator, feature_name, bot) {
             return noBlue(user, gid, bot, operator)
         case 'dynlink':
             return dynLink(user, gid, bot, operator)
-        case 'ingroupvalidation':
-            return inGroupValidation(user, gid, bot, operator)
+        //case 'ingroupvalidation':
+        //    return inGroupValidation(user, gid, bot, operator)
         case 'deljoin':
             return antiServiceMessage(user, gid, bot, operator)
+        case 'antihalal':
+            return antiHalal(user, gid, bot, operator)
+        case 'antihalalenhanced':
+            return antiHalalEnhanced(user, gid, bot, operator)
+        default:
+            return await bot.sendMessage(gid, '请阅读管理功能说明书\nhttps://wfjsw.gitbooks.io/tgcn-groupindex-reference/content/administration-functions.html')
     }
 }
 
@@ -123,6 +153,15 @@ async function switchFeatureCmd(msg, result, bot) {
     })
 }
 
+async function helpFeatureCmd(msg, result, bot) {
+    const is_superadmin = !(['left', 'kicked'].indexOf((await bot.getChatMember(admin_id, msg.from.id)).status) > -1)
+    const is_admin = ['creator', 'administrator'].indexOf((await bot.getChatMember(msg.chat.id, msg.from.id)).status) > -1
+    if (!is_admin && !is_superadmin) return
+    return await bot.sendMessage(msg.chat.id, '请阅读管理功能说明书\nhttps://wfjsw.gitbooks.io/tgcn-groupindex-reference/content/administration-functions.html', {
+        reply_to_message_id: msg.message_id
+    })
+}
+
 /*
 async function switchFeatureButton(msg, type, bot) {
     // feat:[e|d]&gid
@@ -150,6 +189,7 @@ module.exports = {
     },
     run: [
         [/^\/(enable|disable) ([^\s]+)/, switchFeatureCmd],
+        [/^\/(enable|disable)$/, helpFeatureCmd]
         // ['callback_query', switchFeatureButton]
     ]
 }

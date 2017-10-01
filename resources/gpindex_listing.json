@@ -1,7 +1,7 @@
 {
     "promptChooseTag": "请从下方按钮中选择一个群组分类。",
     "errorTagNotExist": "对不起，该分类不存在。",
-    "errorUserBanned": "对不起，您已被禁止使用此功能。\n\n您必须遵守服务中提供的所有政策。\n\n请勿滥用我们的服务。举例而言，请勿干扰我们的服务或尝试使用除我们提供的界面和指示以外的方法访问这些服务（诸如：大量发送更新请求、扒群链接发广告等）。如果您不遵守我们的条款或政策，或者我们在调查可疑的不当行为，我们可以暂停或停止向您提供部分或全部服务。\n\n( http://telegra.ph/The-Telegram-Group-Index-Projects-Terms-of-Service-01-19 )",
+    "errorUserBanned": "对不起，您已被禁止使用此功能。\n\n您必须遵守服务中提供的所有政策。\n\n请勿滥用我们的服务。举例而言，请勿干扰我们的服务或尝试使用除我们提供的界面和指示以外的方法访问这些服务（诸如：大量发送更新请求、扒群链接发广告等）。如果您不遵守我们的条款或政策，或者我们在调查可疑的不当行为，我们可以暂停或停止向您提供部分或全部服务。\n\n( http://telegra.ph/The-Telegram-Group-Index-Projects-Terms-of-Service-01-19 )\n\n申诉/申请复核 请使用 @tgcntkbot 提交工单到 封禁与申诉 部门",
     "errorNoSearchMatchCriteria": "什么都没有找到 _(:з」∠)_",
     "errorTooManyItems": "对不起，无法输出搜索结果，请缩小搜索范围后重试。",
     "errorNoMyGroups": "您当前没有被索引的群组。",

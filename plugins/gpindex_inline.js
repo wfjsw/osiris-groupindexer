@@ -20,6 +20,9 @@ function errorProcess(msg, bot, err) {
     });
 }
 
+function truncateSearch(term) {
+    return term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}
 
 /**
  * @param {Boolean} is_public 
@@ -115,7 +118,8 @@ async function processInlineByName(msg, bot) {
     try {
         const query = msg.query
         const offset = parseInt(msg.offset) || 0
-        let result = await comlib.searchByName(query)
+        let result = await comlib.searchByName(truncateSearch(query))
+        result = result.filter(record => tags.indexOf(record.tag) > -1)
         const total_length = result.length
         /* if (total_length > 100) {
             _ga.tEvent(msg.from, 'inline', 'inline.tooManyItems')
@@ -200,53 +204,60 @@ async function processInlineByCategory(msg, bot) {
     try {
         const query = /^#(.+)/.exec(msg.query)[1]
         const offset = parseInt(msg.offset) || 0
-        let result = await comlib.getRecByTag(query)
-        const total_length = result.length
-        let result_array = []
-        result = result.sort((a, b) => {
-            const ca = a.member_count || 0
-            const cb = b.member_count || 0
-            if (ca > cb) {
-                return -1
-            } else if (ca == cb) {
-                return 0
-            } else if (ca < cb) {
-                return 1
-            }
-        })
-        result = result.slice(offset, offset + single_inline_threshold)
-        result.forEach(ret => {
-            const {
-                message,
-                keyboard
-            } = wrapJoinDialog(ret.is_public,
-                ret.id,
-                ret.title,
-                ret.tag,
-                ret.desc,
-                ret.is_public ? ret.username : `https://t.me/${_e.me.username}?start=getdetail=${ret.id}`
-            )
-            result_array.push({
-                type: 'article',
-                id: ret.id.toString(),
-                title: `${ret.title} # ${ret.tag}`,
-                description: ret.desc,
-                reply_markup: keyboard,
-                input_message_content: {
-                    message_text: message,
-                    disable_web_page_preview: true
+        if (tags.indexOf(query) > -1) {
+            let result = await comlib.getRecByTag(query)
+            const total_length = result.length
+            let result_array = []
+            result = result.sort((a, b) => {
+                const ca = a.member_count || 0
+                const cb = b.member_count || 0
+                if (ca > cb) {
+                    return -1
+                } else if (ca == cb) {
+                    return 0
+                } else if (ca < cb) {
+                    return 1
                 }
             })
-        })
-        let next_offset
-        if (total_length > (offset + single_inline_threshold))
-            next_offset = offset + single_inline_threshold
-        else
-            next_offset = ''
-        return await bot.answerInlineQuery(msg.id, result_array, {
-            next_offset: next_offset.toString(),
-            cache_time: 300, //on production env
-        })
+            result = result.slice(offset, offset + single_inline_threshold)
+            result.forEach(ret => {
+                const {
+                message,
+                    keyboard
+            } = wrapJoinDialog(ret.is_public,
+                        ret.id,
+                        ret.title,
+                        ret.tag,
+                        ret.desc,
+                        ret.is_public ? ret.username : `https://t.me/${_e.me.username}?start=getdetail=${ret.id}`
+                    )
+                result_array.push({
+                    type: 'article',
+                    id: ret.id.toString(),
+                    title: `${ret.title} # ${ret.tag}`,
+                    description: ret.desc,
+                    reply_markup: keyboard,
+                    input_message_content: {
+                        message_text: message,
+                        disable_web_page_preview: true
+                    }
+                })
+            })
+            let next_offset
+            if (total_length > (offset + single_inline_threshold))
+                next_offset = offset + single_inline_threshold
+            else
+                next_offset = ''
+            return await bot.answerInlineQuery(msg.id, result_array, {
+                next_offset: next_offset.toString(),
+                cache_time: 300, //on production env
+            })
+        } else {
+            return await bot.answerInlineQuery(msg.id, [], {
+                next_offset: '',
+                cache_time: 300, //on production env
+            })
+        }
     } catch (e) {
         errorProcess(msg, bot, e)
     }
@@ -256,7 +267,7 @@ async function processInlineQuery(msg, type, bot) {
     try {
         const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
         const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
-        if (!is_blocked && is_validated) {
+        if (!is_blocked && !(_e.plugins['gpindex_validateuser'] && !is_validated)) {
             if (msg.query != '') {
                 if (/^##[0-9-]{5,}$/.test(msg.query)) {
                     _ga.tEvent(msg.from, 'inline', 'inline.queryById')

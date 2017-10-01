@@ -8,42 +8,50 @@ const he = require('he').encode
 var _e, comlib, _ga
 
 async function processSpamCheck(msg, bot) {
-    if (msg.chat.id > 0) return
-    try {
-        const user = msg.new_chat_member ? msg.new_chat_member : msg.from
-        const uid = user.id
-        const nospam_enabled = !(await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:nospam_disabled'))
-        const spam_time = await comlib.UserFlag.queryUserFlag(uid, 'spam') || 0
-        if (nospam_enabled && spam_time != 0 && moment().isSameOrBefore(moment.unix(spam_time))) {
-            console.log(`Chat: ${msg.chat.id} User: ${uid} Join Event (Globally Banned)`)
-            var bannedtime = moment.unix(spam_time).toNow(true)
-            let usermsg = `被封禁用户：<a href="tg://user?id=${user.id}">${user.first_name || ''}`
-            if (user.last_name) usermsg += ` ${user.last_name || ''}`
-            usermsg += `</a> (${user.id})`
-            try {
-                await bot.kickChatMember(msg.chat.id, uid, spam_time)
+    async function checkSpam(user, cid, bot) {
+        try {
+            const uid = user.id
+            const nospam_enabled = !(await comlib.GroupExTag.queryGroupExTag(cid, 'feature:nospam_disabled'))
+            const spam_time = await comlib.UserFlag.queryUserFlag(uid, 'spam') || 0
+            if (nospam_enabled && spam_time != 0 && moment().isSameOrBefore(moment.unix(spam_time))) {
+                console.log(`Chat: ${cid} User: ${uid} Join Event (Globally Banned)`)
+                var bannedtime = moment.unix(spam_time).toNow(true)
+                let usermsg = `被封禁用户：<a href="tg://user?id=${user.id}">${user.first_name || ''}`
+                if (user.last_name) usermsg += ` ${user.last_name || ''}`
+                usermsg += `</a> (${user.id})`
                 try {
-                    await bot.deleteMessage(msg.chat.id, msg.message_id)
-                } catch (e) {}
-                await bot.sendMessage(msg.chat.id, `#SPAM #ENFORCED 已检测到并尝试移除已知群发广告用户，有异议请提交工单复核。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
-                    parse_mode: 'HTML'
-                })
-                _ga.tEvent(user, 'noSpam', 'noSpam.kicked')
-            } catch (e) {
-                await bot.sendMessage(msg.chat.id, `#SPAM 已检测到已知群发广告用户，有异议请提交工单复核。如需自动移除，请将机器人设置为管理员。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
-                    parse_mode: 'HTML'
-                })
-                _ga.tEvent(user, 'noSpam', 'noSpam.not-kicked')
+                    await bot.kickChatMember(cid, uid, spam_time)
+                    try {
+                        await bot.deleteMessage(cid, msg.message_id)
+                    } catch (e) { }
+                    await bot.sendMessage(cid, `#SPAM #ENFORCED 已检测到并尝试移除已知刷屏/广告用户，有异议请提交工单复核。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
+                        parse_mode: 'HTML'
+                    })
+                    _ga.tEvent(user, 'noSpam', 'noSpam.kicked')
+                } catch (e) {
+                    await bot.sendMessage(cid, `#SPAM 已检测到已知刷屏/广告用户，有异议请提交工单复核。如需自动移除，请将机器人设置为管理员。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
+                        parse_mode: 'HTML'
+                    })
+                    _ga.tEvent(user, 'noSpam', 'noSpam.not-kicked')
+                }
+            } else if (spam_time != 0) {
+                await comlib.UserFlag.setUserFlag(uid, 'spam', 0);
+                _ga.tEvent(user, 'noSpam', 'noSpam.expired')
+            } else {
+               // return await captureHalal(msg, bot)
             }
-        } else if (spam_time != 0) {
-            await comlib.UserFlag.setUserFlag(uid, 'spam', 0);
-            _ga.tEvent(user, 'noSpam', 'noSpam.expired')
-        } else {
-            return await captureHalal(msg, bot)
+        } catch (e) {
+            console.error(e)
+            _ga.tException(msg.from, e, true)
         }
-    } catch (e) {
-        console.error(e)
-        _ga.tException(msg.from, e, true)
+    }
+    if (msg.chat.id > 0) return
+    if (msg.left_chat_member) return
+    if (msg.new_chat_members) {
+        for (let user of msg.new_chat_members) 
+            checkSpam(user, msg.chat.id, bot)    
+    } else {
+        checkSpam(msg.from, msg.chat.id, bot)    
     }
 }
 

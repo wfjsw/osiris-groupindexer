@@ -35,7 +35,7 @@ function sendGCDLink(msg, result, bot) {
 }
 
 function sendLink(msg, link, bot) {
-    return bot.sendMessage(msg.from.id, '欢迎加入 “群主信息交流小组”，链接有效期为三分钟，请勿传播。', {
+    return bot.sendMessage(msg.from.id, '欢迎加入 “群主信息交流小组”，链接有效期为三分钟，请勿传播。\n\n请注意此群组仅为应急通讯使用，如果有日常使用的问题请到 @newbie_chat 询问。', {
         reply_to_message_id: msg.message_id,
         reply_markup: {inline_keyboard:[[{text: '加入', url: link}]]}
     })
@@ -43,10 +43,10 @@ function sendLink(msg, link, bot) {
 
 function printCreatedChat(msg, type, bot) {
     if (msg.chat.id == gcd) {
-        comlib.getRecByCreator(msg.from.id)
+        comlib.getRecByCreator(msg.new_chat_members[0].id)
         .then(recs => {
             if ((recs||[]).length > 0) {
-                let out = ''
+                let out = '#查户口\n\n'
                 recs.forEach((rec) => {
                     let line;
                     line = rec.id
@@ -63,7 +63,7 @@ function printCreatedChat(msg, type, bot) {
                 })
             }
         }).catch(e => {
-            _ga.tException(msg.from.id, e, false)
+            _ga.tException(msg.new_chat_members[0], e, false)
         })
     }
 }
@@ -78,6 +78,6 @@ module.exports = {
     run: [
         [/^\/joingcd$/, sendGCDLink],
         [/^\/start joingcd$/, sendGCDLink],
-        ['new_chat_member', printCreatedChat]
+        ['new_chat_members', printCreatedChat]
     ]
 }

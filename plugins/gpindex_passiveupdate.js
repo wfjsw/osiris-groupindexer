@@ -1,32 +1,34 @@
-'use strict'; 
+'use strict';
 var _e, _ga
 
 const util = require('util')
 const ADMIN_GROUP = require('../config.gpindex.json')['gpindex_admin'];
 
-function passiveUpdate(msg, bot) {
+async function passiveUpdate(msg, bot) {
     if (msg.chat.id < 0) {
         var gid = msg.chat.id
-        _e.libs['gpindex_common'].getRecord(gid)
-        .then((ret) => {
-            var updation = {}, 
+        try {
+            const record = await _e.libs['gpindex_common'].getRecord(gid)
+            var updation = {},
                 updatable = false;
-            if (ret && ret.title != msg.chat.title) {
+            if (record && record.title != msg.chat.title) {
                 updation.title = msg.chat.title;
                 updatable = true;
             }
-            if (ret && ret.username && msg.chat.username && ret.username != msg.chat.username) {
+            if (record && record.username && msg.chat.username && record.username != msg.chat.username) {
                 updation.username = msg.chat.username;
                 updatable = true
             }
             if (updatable == true) return _e.libs['gpindex_common'].silentUpdate(gid, updation);
-        }).then((ret) => {
-            // _ga.tEvent(gid, 'passiveUpdate', 'updated')
-        }).catch((e) => {
+        } catch (e) {
             console.error(e.stack)
             _ga.tException(msg.from.id, e, false)
-        })
+        }
     }
+}
+
+async function passiveUpdateChannel(msg, type, bot) {
+    return passiveUpdate(msg, bot)
 }
 
 async function doMigrate(msg, type, bot) {
@@ -40,8 +42,10 @@ async function doMigrate(msg, type, bot) {
         const rm_stat = await comlib.doRemoval(msg.migrate_from_chat_id)
         const ins_stat = await comlib.silentInsert(new_data)
         await bot.sendMessage(ADMIN_GROUP, `migrated with me: ${msg.migrate_from_chat_id} => ${msg.chat.id}\n\n${util.inspect(rm_stat)}\n${util.inspect(ins_stat)}`)
-        await bot.sendMessage(msg.chat.id, '已成功为您转移索引数据到升级后的超级群。请及时使用 “ /grouplink_update 链接 ”更新您在索引中注册的邀请链接。')
-        _ga.tEvent(msg.chat.id, 'passiveUpdate', 'passiveUpdate.chatMigrate')
+        await bot.sendMessage(msg.chat.id, '已成功为您转移索引数据到升级后的超级群。请及时使用 `/grouplink_update 新链接` 更新您在索引中注册的邀请链接。转公开群可创建公开链接之后直接使用 `/update` 指令更新。', {
+            parse_mode: 'Markdown'
+        })
+        // _ga.tEvent(msg.chat, 'passiveUpdate', 'passiveUpdate.chatMigrate')
     } catch (e) {
         console.error(e)
         await bot.sendMessage(ADMIN_GROUP, util.inspect(e.stack))
@@ -52,7 +56,7 @@ async function doMigrate(msg, type, bot) {
 async function notifyMigrate(msg, type, bot) {
     try {
         const comlib = _e.libs['gpindex_common']
-        const old_data = await comlib.getRecord(msg.migrate_from_chat_id)
+        const old_data = await comlib.getRecord(msg.migrate_to_chat_id)
         if (!old_data) return
         await bot.sendMessage(ADMIN_GROUP, `migrating: ${msg.migrate_from_chat_id} => ${msg.chat.id}`)
     } catch (e) {
@@ -69,7 +73,7 @@ async function notifyLeave(msg, type, bot) {
         }
     } catch (e) {
         console.error(e)
-    }    
+    }
 }
 
 module.exports = {
@@ -81,6 +85,7 @@ module.exports = {
     run: [
         ['migrate_from_chat_id', doMigrate],
         ['migrate_to_chat_id', notifyMigrate],
-        ['left_chat_member', notifyLeave]
+        ['left_chat_member', notifyLeave],
+        ['channel_post', passiveUpdateChannel]
     ]
 }

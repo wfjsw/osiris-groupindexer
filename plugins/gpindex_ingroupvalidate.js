@@ -28,63 +28,64 @@ async function sleep(ms) {
 
 async function processUserTest(msg, type, bot) {
     if (msg.chat.id > 0) return
-    const user = msg.new_chat_member
-    const uid = user.id
-    const is_enabled = !!(await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:ingroupvalidation'))
-    if (!is_enabled) return
+    for (let user of msg.new_chat_members) {
+        const uid = user.id
+        const is_enabled = !!(await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:ingroupvalidation'))
+        if (!is_enabled) return
 
-    const is_user_validated = !!(await comlib.UserFlag.queryUserFlag(uid, 'validated'))
-    if (is_user_validated) {
-        _ga.tEvent(msg.from, 'ingroupvalidation', 'ingroupvalidation.noNeed')
-        const noneedvalidate = await _e.bot.sendMessage(msg.chat.id, `用户 <a href="tg://user?id=${msg.from.id}">${he(msg.from.first_name)}</a> 已经通过日人民报验证，无需重复验证。`, {
-            parse_mode: 'HTML'
-        })
-        return setTimeout(() => {
-            bot.deleteMessage(msg.chat.id, noneedvalidate.message_id)
-                .catch(() => {})
-        }, 10 * 1000)
-    } else {
-        try {
-            await sleep(1200)
-            await bot.restrictChatMember(msg.chat.id, uid, {
-                can_send_messages: false
+        const is_user_validated = !!(await comlib.UserFlag.queryUserFlag(uid, 'validated'))
+        if (is_user_validated) {
+            _ga.tEvent(user, 'ingroupvalidation', 'ingroupvalidation.noNeed')
+            const noneedvalidate = await _e.bot.sendMessage(msg.chat.id, `用户 <a href="tg://user?id=${uid}">${he(user.first_name)}</a> 已经通过日人民报验证，无需重复验证。`, {
+                parse_mode: 'HTML'
             })
-            let this_bank_id = Math.floor(Math.random() * (banks.length - 1))
-            let this_bank = banks[this_bank_id]
-            let question = this_bank.bank.generateQuestion(this_bank.answer_per_session, this_bank.dummy_per_session)
-            let row = [],
-                i = 0;
-            let col = [];
-            question.forEach((child, index) => {
-                col.push({
-                    text: child.v,
-                    callback_data: `igv:${this_bank_id}&${uid}&${child.k}&${index}`
+            return setTimeout(() => {
+                bot.deleteMessage(msg.chat.id, noneedvalidate.message_id)
+                    .catch(() => { })
+            }, 10 * 1000)
+        } else {
+            try {
+                await sleep(1200)
+                await bot.restrictChatMember(msg.chat.id, uid, {
+                    can_send_messages: false
                 })
-                if (col.length == buttons_per_line) {
+                let this_bank_id = Math.floor(Math.random() * (banks.length - 1))
+                let this_bank = banks[this_bank_id]
+                let question = this_bank.bank.generateQuestion(this_bank.answer_per_session, this_bank.dummy_per_session)
+                let row = [],
+                    i = 0;
+                let col = [];
+                question.forEach((child, index) => {
+                    col.push({
+                        text: child.v,
+                        callback_data: `igv:${this_bank_id}&${uid}&${child.k}&${index}`
+                    })
+                    if (col.length == buttons_per_line) {
+                        row.push(col);
+                        col = [];
+                    }
+                })
+                if (col.length > 0) {
                     row.push(col);
                     col = [];
                 }
-            })
-            if (col.length > 0) {
-                row.push(col);
-                col = [];
+                wrongcount[`${msg.chat.id}:${uid}`] = 0
+                _ga.tEvent(user, 'ingroupvalidation', 'ingroupvalidation.presentChallenge')
+                await bot.restrictChatMember(msg.chat.id, uid, {
+                    can_send_messages: false
+                })
+                await bot.sendMessage(msg.chat.id, `您好 <a href="tg://user?id=${uid}">${he(user.first_name)}</a>，欢迎来到 ${msg.chat.title}，该群组启用了群内防清真验证，请回答以下问题：\n\n请从下列按钮中选取 ${this_bank.name}`, {
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: row
+                    }
+                })
+            } catch (e) {
+                console.error(e)
+                _ga.tException(user, e, true)
+                _ga.tEvent(user, 'ingroupvalidation', 'ingroupvalidation.initFailed')
+                return await bot.sendMessage(msg.chat.id, '群内防清真验证功能激活失败，请确认管理员权限。')
             }
-            wrongcount[`${msg.chat.id}:${uid}`] = 0
-            _ga.tEvent(msg.from, 'ingroupvalidation', 'ingroupvalidation.presentChallenge')
-            await bot.restrictChatMember(msg.chat.id, uid, {
-                can_send_messages: false
-            })
-            await bot.sendMessage(msg.chat.id, `您好 <a href="tg://user?id=${msg.from.id}">${he(msg.from.first_name)}</a>，欢迎来到 ${msg.chat.title}，该群组启用了群内防清真验证，请回答以下问题：\n\n请从下列按钮中选取 ${this_bank.name}`, {
-                parse_mode: 'HTML',
-                reply_markup: {
-                    inline_keyboard: row
-                }
-            })
-        } catch (e) {
-            console.error(e)
-            _ga.tException(msg.from, e, true)
-            _ga.tEvent(msg.from, 'ingroupvalidation', 'ingroupvalidation.initFailed')
-            return await bot.sendMessage(msg.chat.id, '群内防清真验证功能激活失败，请确认管理员权限。')
         }
     }
 }
@@ -223,7 +224,7 @@ module.exports = {
         _ga = e.libs['ga']
     },
     run: [
-        ['new_chat_member', processUserTest],
+        ['new_chat_members', processUserTest],
         ['callback_query', processAnswer],
         //['text', testUser]
     ]

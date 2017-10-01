@@ -40,7 +40,7 @@ async function startEnrollment(msg, result, bot) {
             try {
                 const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
                 const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-                if (is_validated) {
+                if (!(_e.plugins['gpindex_validateuser'] && !is_validated)) {
                     if (!is_blocked) {
                         var cburl = `https://telegram.me/${_e.me.username}?startgroup=grpselect`
                         return await bot.sendMessage(msg.from.id, langres['promptChooseGroup'], {
@@ -155,6 +155,8 @@ async function checkChannelEnrollCondition(msg, bot) {
     const record = await comlib.getRecord(channel_id)
     if (record && record.creator != msg.from.id)
         return
+    else if (record && record.creator == msg.from.id)
+        await comlib.doRemoval(record.id)
     let user_status
     try {
         user_status = (await bot.getChatMember(channel_id, msg.from.id)).status

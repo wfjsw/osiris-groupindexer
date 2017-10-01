@@ -24,7 +24,9 @@ module.exports = {
         _ga = e.libs['ga'];
     },
     run: [
-        ['new_chat_member', updateCount],
-        ['left_chat_member', updateCount]
+        ['new_chat_members', updateCount],
+        ['left_chat_member', updateCount],
+        ['channel_post', updateCount],
+        ['edited_channel_post', updateCount]
     ]
 }
