@@ -1,11 +1,12 @@
 const admin_id = require('../config.gpindex.json')['gpindex_admin'];
 const temp_admin = []
-const halal_capture = -1001135234856
+const send_notification_threshold = 120
 
 const moment = require('moment')
 const util = require('util')
 const he = require('he').encode
 var _e, comlib, _ga
+let last_notify = {}
 
 async function processSpamCheck(msg, bot) {
     async function checkSpam(user, cid, bot) {
@@ -24,15 +25,35 @@ async function processSpamCheck(msg, bot) {
                     try {
                         await bot.deleteMessage(cid, msg.message_id)
                     } catch (e) { }
-                    await bot.sendMessage(cid, `#SPAM #ENFORCED 已检测到并尝试移除已知刷屏/广告用户，有异议请提交工单复核。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
-                        parse_mode: 'HTML'
-                    })
-                    _ga.tEvent(user, 'noSpam', 'noSpam.kicked')
+                    let send = false
+                    if (last_notify[msg.from.id.toString()]) {
+                        if ((Math.floor(new Date().valueOf() / 1000) - last_notify[msg.from.id.toString()]) > send_notification_threshold) {
+                            send = true
+                        }
+                    } else {
+                        send = true
+                    }
+                    if (send) {
+                        await bot.sendMessage(cid, `#SPAM #ENFORCED 已检测到并尝试移除已知刷屏/广告用户，有异议请提交工单复核。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
+                            parse_mode: 'HTML'
+                        })
+                        _ga.tEvent(user, 'noSpam', 'noSpam.kicked')
+                    }
                 } catch (e) {
-                    await bot.sendMessage(cid, `#SPAM 已检测到已知刷屏/广告用户，有异议请提交工单复核。如需自动移除，请将机器人设置为管理员。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
-                        parse_mode: 'HTML'
-                    })
-                    _ga.tEvent(user, 'noSpam', 'noSpam.not-kicked')
+                    let send = false
+                    if (last_notify[msg.from.id.toString()]) {
+                        if ((Math.floor(new Date().valueOf() / 1000) - last_notify[msg.from.id.toString()]) > send_notification_threshold) {
+                            send = true
+                        }
+                    } else {
+                        send = true
+                    }
+                    if (send) {
+                        await bot.sendMessage(cid, `#SPAM 已检测到已知刷屏/广告用户，有异议请提交工单复核。如需自动移除，请将机器人设置为管理员。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
+                            parse_mode: 'HTML'
+                        })
+                        _ga.tEvent(user, 'noSpam', 'noSpam.not-kicked')
+                    }
                 }
             } else if (spam_time != 0) {
                 await comlib.UserFlag.setUserFlag(uid, 'spam', 0);
@@ -55,44 +76,6 @@ async function processSpamCheck(msg, bot) {
     }
 }
 
-function countHalal(string) {
-    let len = string.length,
-        count = 0
-    for (let i = 0; i < len; ++i) {
-        let char = string.charCodeAt(i)
-        switch (true) {
-            case char >= 0x600 && char <= 0x6ff:
-            case char >= 0x750 && char <= 0x77f:
-            case char >= 0x8a0 && char <= 0x8ff:
-            case char >= 0x900 && char <= 0x97f:
-            case char >= 0x600 && char <= 0x6ff:
-            case char >= 0xa8e0 && char <= 0xa8ff:
-            case char >= 0xfb50 && char <= 0xfdff:
-            case char >= 0xfe70 && char <= 0xfeff:
-                ++count
-        }
-    }
-    return count
-}
-
-async function captureHalal(msg, bot) {
-    try {
-        let need_test = ''
-        if (msg.text) need_test += msg.text
-        if (msg.caption) need_test += msg.caption
-        if (msg.forward_from_chat) need_test += msg.forward_from_chat.title
-        let score = countHalal(need_test)
-        if (score > 10) {
-            let result = await bot.forwardMessage(halal_capture, msg.chat.id, msg.message_id)
-            return await bot.sendMessage(halal_capture, `${util.inspect(msg.chat)}\n${util.inspect(msg.from)}`, {
-                reply_to_message_id: result.message_id
-            })
-        }
-    } catch (e) {
-        console.error(e.stack)
-    }
-}
-
 async function manuallyEnforceNospam(msg, result, bot) {
     if (msg.chat.id > 0) return
     const user = msg.reply_to_message.from
@@ -111,20 +94,20 @@ async function manuallyEnforceNospam(msg, result, bot) {
             const msgl = await bot.sendMessage(msg.chat.id, `#SPAM #ENFORCED 200 OK\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
                 reply_to_message_id: msg.message_id
             })
-            setTimeout(() => {
+            /*setTimeout(() => {
                 bot.deleteMessage(msg.chat.id, msgl.message_id)
                     .catch(() => {})
-            }, 5 * 1000)
-            _ga.tEvent(user, 'noSpam', 'noSpam.kicked')
+            }, 5 * 1000)*/
+            _ga.tEvent(user, 'noSpam', 'noSpam.kicked-manual')
         } catch (e) {
             const msgl = await bot.sendMessage(msg.chat.id, `#SPAM 401 Unauthorized\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
                 reply_to_message_id: msg.message_id
             })
-            setTimeout(() => {
+            /*setTimeout(() => {
                 bot.deleteMessage(msg.chat.id, msgl.message_id)
                     .catch(() => {})
-            }, 5 * 1000)
-            _ga.tEvent(user, 'noSpam', 'noSpam.not-kicked')
+            }, 5 * 1000)*/
+            _ga.tEvent(user, 'noSpam', 'noSpam.not-kicked-manual')
         }
     } else {
         const msgl = await bot.sendMessage(msg.chat.id, `404 Not Found`, {

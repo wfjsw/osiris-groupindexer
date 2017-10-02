@@ -3,9 +3,7 @@
 var comlib
 
 async function removeService(msg, type, bot) {
-    const record = await comlib.getRecord(msg.chat.id)
-    if (!record) return
-    const is_enabled = !!(record.extag && record.extag['feature:deljoin'])
+    const is_enabled = !!(await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:deljoin'))
     if (is_enabled)
         return bot.deleteMessage(msg.chat.id, msg.message_id)
             .catch((e) => {

@@ -80,7 +80,7 @@ async function antiHalal(user, gid, bot, operator) {
         case 'enable':
             _ga.tEvent(user, 'featureswitch', 'featureswitch.antiHalal.enabled')
             await comlib.GroupExTag.setGroupExTag(gid, 'feature:antihalal', 1)
-            return '已成功启用防清真组件。必需权限：Ban Users, Delete Messages\n\n使用前请先阅读说明：'
+            return '已成功启用防清真组件。必需权限：Ban Users, Delete Messages\n\n使用前请先阅读说明：https://wfjsw.gitbooks.io/tgcn-groupindex-reference/content/plugin_antihalal.html'
         case 'disable':
             _ga.tEvent(user, 'featureswitch', 'featureswitch.antiHalal.disabled')
             await comlib.GroupExTag.setGroupExTag(gid, 'feature:antihalal', 0)
@@ -122,16 +122,6 @@ async function switchFeature(user, gid, operator, feature_name, bot) {
 
 async function switchFeatureCmd(msg, result, bot) {
     if (msg.chat.id > 0) return
-    const record = await comlib.getRecord(msg.chat.id)
-    if (!record) {
-        const message = await bot.sendMessage(msg.chat.id, '受到存储位置限制，只有索引中的群组才能对管理功能进行调整。', {
-            reply_to_message_id: msg.message_id
-        })
-        return setTimeout(() => {
-            bot.deleteMessage(msg.chat.id, message.message_id)
-                .catch(() => {})
-        }, 15 * 1000)
-    }
     const is_superadmin = !(['left', 'kicked'].indexOf((await bot.getChatMember(admin_id, msg.from.id)).status) > -1)
     const is_admin = ['creator', 'administrator'].indexOf((await bot.getChatMember(msg.chat.id, msg.from.id)).status) > -1
     if (!is_admin && !is_superadmin) {

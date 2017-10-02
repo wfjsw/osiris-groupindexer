@@ -17,6 +17,22 @@ async function updateCount(msg, type, bot) {
     })
 }
 
+async function refreshOnGetDetail(msg, result, bot) {
+    try {
+        let gid = parseInt(result[1])
+        if (gid > 0) return
+        const record = await comlib.getRecord(gid)
+        if (!record) return
+        if (!record.type == 'channel' && !record.is_public) return
+        const member_count = await bot.getChatMembersCount(gid)
+        return await comlib.silentUpdate(gid, {
+            member_count
+        })
+    } catch (e) {
+        // console.error(e.message)
+    }
+}
+
 module.exports = {
     init: (e) => {
         _e = e;
@@ -27,6 +43,8 @@ module.exports = {
         ['new_chat_members', updateCount],
         ['left_chat_member', updateCount],
         ['channel_post', updateCount],
-        ['edited_channel_post', updateCount]
+        ['edited_channel_post', updateCount],
+        [/^\/start getdetail=([0-9-]{6,})/, refreshOnGetDetail],
+        [/^\/getdetail ([0-9-]{6,})/, refreshOnGetDetail]
     ]
 }

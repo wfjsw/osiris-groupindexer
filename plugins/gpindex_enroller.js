@@ -88,33 +88,33 @@ async function groupChosen(msg, result, bot) {
     var uid = msg.from.id,
         gid = msg.chat.id
     if (gid > 0) return
-    if (!session[uid]) {
+    if (!session[uid] && !comlib.getLock(uid)) {
         // Check user creator status && check group enrollment status
         try {
             const record = await comlib.getRecord(gid)
             if (record)
                 return await bot.sendMessage(gid, langres['errorAlreadyExist']);
-            const admins = await bot.getChatAdministrators(gid)
-            const is_creator = admins.some(admin => admin.user.id == uid && admin.status == 'creator')
-            if (!is_creator)
-                return await bot.sendMessage(gid, langres['errorNotCreator']);
-            var cburl = `https://telegram.me/${_e.me.username}?start=enroll=${gid}`
+            // const admins = await bot.getChatAdministrators(gid)
+            // const is_creator = admins.some(admin => admin.user.id == uid && admin.status == 'creator')
+            //if (!is_creator)
+            //    return await bot.sendMessage(gid, langres['errorNotCreator']);
+            //var cburl = `https://telegram.me/${_e.me.username}?start=enroll=${gid}`
             await bot.sendMessage(gid, langres['promptGroupChosen'], {
                 reply_to_message_id: msg.message_id,
                 reply_markup: {
                     inline_keyboard: [
                         [{
                             text: langres['buttonGroupChosenContinue'],
-                            url: cburl
+                            callback_data: `enroller:enroll`
                         }]
                     ]
                 }
             })
             // offer button to continue && set state
-            session[uid] = {
+            /* session[uid] = {
                 status: 'pending_enroll_pm'
             }
-            comlib.setLock(uid)
+            comlib.setLock(uid)*/
         } catch (e) {
             return errorProcess(msg, bot, e);
         }
@@ -123,13 +123,31 @@ async function groupChosen(msg, result, bot) {
     }
 }
 
+async function redirectToPrivateEnrollState(msg, bot) {
+    let is_creator = (await bot.getChatMember(msg.message.chat.id, msg.from.id)).status == 'creator'
+    if (!is_creator) {
+        return await bot.answerCallbackQuery({
+            callback_query_id: msg.id,
+            text: langres['errorNotCreator']
+        })
+    } else {
+        let cburl = `https://t.me/${_e.me.username}?start=enroll=${msg.message.chat.id}`
+        return bot.answerCallbackQuery({
+            callback_query_id: msg.id,
+            url: cburl
+        })
+    }
+}
+
 async function groupSelected(msg, result, bot) {
     // Check in state
-    var gid = result[1],
+    let gid = result[1],
         uid = msg.from.id,
         sid = msg.chat.id
-    if (session[uid] && session[uid].status == 'pending_enroll_pm' && uid == sid && gid < 0) {
+    let is_creator = (await bot.getChatMember(gid, uid)).status == 'creator'
+    if (is_creator && sid > 0 && gid < 0) {
         // do shit posting
+        comlib.setLock(uid)
         try {
             let chat = await bot.getChat(gid)
             delete chat['pinned_message']
@@ -236,10 +254,12 @@ async function processEnrollWaitDescription(uid, ret, msg, bot) {
 }
 
 async function processEnrollUseCurrentDesc(msg, bot) {
-    var newinfo = session[msg.from.id].argu;
-    newinfo['desc'] = newinfo['description']
-    if (newinfo.username) processEnrollPublic(msg.from.id, newinfo, msg, bot); // is public group
-    else processEnrollPrivateWaitLink(msg.from.id, newinfo, msg, bot); // is private group
+    if (session[msg.from.id]) {
+        var newinfo = session[msg.from.id].argu;
+        newinfo['desc'] = newinfo['description']
+        if (newinfo.username) processEnrollPublic(msg.from.id, newinfo, msg, bot); // is public group
+        else processEnrollPrivateWaitLink(msg.from.id, newinfo, msg, bot); // is private group
+    }
 }
 
 
@@ -404,6 +424,8 @@ async function processCallbackButton(msg, type, bot) {
             return processEnrollUseCurrentDesc(msg, bot)
         case 'enroller_manual_channel':
             return displayChannelManual(msg, bot)
+        case 'enroller:enroll':
+            return redirectToPrivateEnrollState(msg, bot)    
     }
 
     // common with param
@@ -694,6 +716,7 @@ function enrollmentOptOut(msg, result, bot) {
 
 function processText(msg, type, bot) {
     var input = msg.text;
+    if (msg.text.match(/^\/cancel/)) return
     try {
         if (session[msg.from.id]) {
             if (session[msg.from.id].status == 'waitfortag' && tags.indexOf(input) > -1) {
@@ -701,7 +724,7 @@ function processText(msg, type, bot) {
                 newinfo['tag'] = input;
                 processEnrollWaitDescription(msg.from.id, newinfo, msg, bot);
             } else if (session[msg.from.id].status == 'waitfortag' && tags.indexOf(input) == -1) {
-                bot.sendMessage(msg.chat.id, util.format(langres['errorInvaildTag'], tags.join('\n')));
+                bot.sendMessage(msg.chat.id, util.format(langres['errorInvalidTag'], tags.join('\n')));
             } else if (session[msg.from.id].status == 'waitfordesc') {
                 var newinfo = session[msg.from.id].argu;
                 newinfo['desc'] = input;
@@ -764,7 +787,7 @@ function updateTag(msg, result, bot) {
                     else errorProcess(msg, bot, e);
                 })
         } else {
-            bot.sendMessage(msg.chat.id, util.format(langres['errorInvaildTag'], tags.join('\n')));
+            bot.sendMessage(msg.chat.id, util.format(langres['errorInvalidTag'], tags.join('\n')));
         }
     } else {
         bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);

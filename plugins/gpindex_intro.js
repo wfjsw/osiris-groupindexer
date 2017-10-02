@@ -11,7 +11,8 @@ function writeHelp(msg, result, bot) {
             reply_markup: {
                 inline_keyboard: [
                     [{text: '报告问题/获取社区帮助', url: 'https://t.me/zh_CN/294'}],
-                    [{text: 'Telegram 中文汉化文件', url: 'https://t.me/zh_CN'}]
+                    [{ text: 'Telegram 中文汉化文件', url: 'https://t.me/zh_CN' }],
+                    [{ text: '进阶使用手册', url: 'https://wfjsw.gitbooks.io/tgcn-groupindex-reference/content/'}]
                 ]}
         }).catch((e) => {
             _ga.tException(msg.from, e, true)

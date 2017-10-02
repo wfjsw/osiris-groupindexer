@@ -7,9 +7,9 @@ async function removeCmd(msg, result, bot) {
         if (!msg.entities) return
         const is_cmd_exist = msg.entities.some(entity => entity.type == 'bot_command')
         if (!is_cmd_exist) return
-        const record = await comlib.getRecord(msg.chat.id)
-        if (!record) return
-        const is_enabled = !(record.extag && record.extag['feature:noblue_disabled'])
+        // const record = await comlib.getRecord(msg.chat.id)
+        // if (!record) return
+        const is_enabled = !(await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:noblue_disabled'))
         if (is_enabled)
             setTimeout(() => {
                 bot.deleteMessage(msg.chat.id, msg.message_id)
