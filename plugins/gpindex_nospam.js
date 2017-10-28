@@ -8,6 +8,12 @@ const he = require('he').encode
 var _e, comlib, _ga
 let last_notify = {}
 
+function gcArray() {
+    for (let i in last_notify)
+        if (last_notify[i] > send_notification_threshold)
+            delete last_notify[i]
+}
+
 async function processSpamCheck(msg, bot) {
     async function checkSpam(user, cid, bot) {
         try {
@@ -21,20 +27,21 @@ async function processSpamCheck(msg, bot) {
                 if (user.last_name) usermsg += ` ${user.last_name || ''}`
                 usermsg += `</a> (${user.id})`
                 try {
-                    await bot.kickChatMember(cid, uid, spam_time)
                     try {
                         await bot.deleteMessage(cid, msg.message_id)
-                    } catch (e) { }
+                    } catch (e) {}
+                    await bot.kickChatMember(cid, uid, spam_time)
                     let send = false
                     if (last_notify[msg.from.id.toString()]) {
-                        if ((Math.floor(new Date().valueOf() / 1000) - last_notify[msg.from.id.toString()]) > send_notification_threshold) {
+                        if ((Math.floor(Date.now() / 1000) - last_notify[msg.from.id.toString()]) > send_notification_threshold) {
                             send = true
                         }
                     } else {
                         send = true
                     }
                     if (send) {
-                        await bot.sendMessage(cid, `#SPAM #ENFORCED 已检测到并尝试移除已知刷屏/广告用户，有异议请提交工单复核。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
+                        last_notify[msg.from.id.toString()] = Math.floor(Date.now() / 1000)
+                        await bot.sendMessage(cid, `#SPAM #ENFORCED 已检测到并尝试移除已知刷屏/广告用户，有异议请提交工单复核。\nTGCN-工单系统：@tgcntkbot\n关于我们的封禁策略：https://wfjsw.gitbooks.io/tgcn-groupindex-reference/content/note-about-spam-tag.html\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
                             parse_mode: 'HTML'
                         })
                         _ga.tEvent(user, 'noSpam', 'noSpam.kicked')
@@ -42,14 +49,15 @@ async function processSpamCheck(msg, bot) {
                 } catch (e) {
                     let send = false
                     if (last_notify[msg.from.id.toString()]) {
-                        if ((Math.floor(new Date().valueOf() / 1000) - last_notify[msg.from.id.toString()]) > send_notification_threshold) {
+                        if ((Math.floor(Date.now() / 1000) - last_notify[msg.from.id.toString()]) > send_notification_threshold) {
                             send = true
                         }
                     } else {
                         send = true
                     }
                     if (send) {
-                        await bot.sendMessage(cid, `#SPAM 已检测到已知刷屏/广告用户，有异议请提交工单复核。如需自动移除，请将机器人设置为管理员。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
+                        last_notify[msg.from.id.toString()] = Math.floor(Date.now() / 1000)
+                        await bot.sendMessage(cid, `#SPAM 已检测到已知刷屏/广告用户，有异议请提交工单复核。如需自动移除，请将机器人设置为管理员。\nTGCN-工单系统：@tgcntkbot\n关于我们的封禁策略：https://wfjsw.gitbooks.io/tgcn-groupindex-reference/content/note-about-spam-tag.html\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
                             parse_mode: 'HTML'
                         })
                         _ga.tEvent(user, 'noSpam', 'noSpam.not-kicked')
@@ -59,7 +67,7 @@ async function processSpamCheck(msg, bot) {
                 await comlib.UserFlag.setUserFlag(uid, 'spam', 0);
                 _ga.tEvent(user, 'noSpam', 'noSpam.expired')
             } else {
-               // return await captureHalal(msg, bot)
+                // return await captureHalal(msg, bot)
             }
         } catch (e) {
             console.error(e)
@@ -69,10 +77,10 @@ async function processSpamCheck(msg, bot) {
     if (msg.chat.id > 0) return
     if (msg.left_chat_member) return
     if (msg.new_chat_members) {
-        for (let user of msg.new_chat_members) 
-            checkSpam(user, msg.chat.id, bot)    
+        for (let user of msg.new_chat_members)
+            checkSpam(user, msg.chat.id, bot)
     } else {
-        checkSpam(msg.from, msg.chat.id, bot)    
+        checkSpam(msg.from, msg.chat.id, bot)
     }
 }
 
@@ -194,6 +202,7 @@ module.exports = {
         _e = e;
         comlib = _e.libs['gpindex_common'];
         _ga = e.libs['ga'];
+        setInterval(gcArray, 5 * 60 * 1000)
     },
     preprocess: processSpamCheck,
     run: [

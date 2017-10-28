@@ -1,10 +1,14 @@
 'use strict'
 
+const publish_rate_limit = 24*3600
+
 const util = require('util')
 const langres = require('../resources/gpindex_publisher.json')
 
 const channel_id = require('../config.gpindex.json')['gpindex_channel']
 const admin_id = require('../config.gpindex.json')['gpindex_admin']
+
+let last_updated = {}
 
 var _e
 
@@ -40,10 +44,12 @@ function initevents() {
         })
     })
     context.on('update_public_data', (groupinfo) => {
+        if (last_updated[groupinfo.id] && ((Math.floor(new Date().valueOf() / 1000) - last_updated[groupinfo.id]) < publish_rate_limit)) return
         _e.libs['gpindex_common'].getRecord(groupinfo.id)
             .then((ret) => {
-                var text
-                var link = 'https://t.me/' + _e.me.username + '?start=getdetail=' + ret.id
+                last_updated[groupinfo.id] = Math.floor(new Date().valueOf() / 1000)
+                let text
+                let link = 'https://t.me/' + _e.me.username + '?start=getdetail=' + ret.id
                 if (groupinfo.type == 'channel') text = util.format(langres['updatePublicChan'], ret.title, ret.username, ret.tag, ret.desc, ret.id)
                 else text = util.format(langres['updatePublic'], ret.title, ret.username, ret.tag, ret.desc, ret.id)
                 return bot.sendMessage(channel_id, text, {
@@ -98,9 +104,11 @@ function initevents() {
         })
     })
     context.on('update_private_data', (groupinfo) => {
+        if (last_updated[groupinfo.id] && ((Math.floor(new Date().valueOf() / 1000) - last_updated[groupinfo.id]) < publish_rate_limit)) return
         // Private Group Updated
         _e.libs['gpindex_common'].getRecord(groupinfo.id)
             .then((ret) => {
+                last_updated[groupinfo.id] = Math.floor(new Date().valueOf() / 1000)
                 let text
                 var link = 'https://t.me/' + _e.me.username + '?start=getdetail=' + groupinfo.id
                 // remove link in desc [security reason]

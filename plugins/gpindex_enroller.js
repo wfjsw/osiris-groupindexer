@@ -40,7 +40,8 @@ async function startEnrollment(msg, result, bot) {
             try {
                 const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
                 const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-                if (!(_e.plugins['gpindex_validateuser'] && !is_validated)) {
+                const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
+                if (!(_e.plugins['gpindex_validateuser'] && !is_validated && !is_in_jvbao)) {
                     if (!is_blocked) {
                         var cburl = `https://telegram.me/${_e.me.username}?startgroup=grpselect`
                         return await bot.sendMessage(msg.from.id, langres['promptChooseGroup'], {
@@ -93,7 +94,9 @@ async function groupChosen(msg, result, bot) {
         try {
             const record = await comlib.getRecord(gid)
             if (record)
-                return await bot.sendMessage(gid, langres['errorAlreadyExist']);
+                return await bot.sendMessage(gid, langres['errorAlreadyExist'], {
+                    parse_mode: 'Markdown'
+                })
             // const admins = await bot.getChatAdministrators(gid)
             // const is_creator = admins.some(admin => admin.user.id == uid && admin.status == 'creator')
             //if (!is_creator)
@@ -312,6 +315,13 @@ async function processLink(msg, result, bot) {
         }
 }
 
+async function processUnIntendedLink(msg, result, bot) {
+    if (msg.chat.id > 0 && !session[msg.from.id])
+        return await bot.sendMessage(msg.chat.id, langres['infoUnintendedLink'], {
+            reply_to_message_id: msg.message_id
+        })
+}
+
 async function processEnrollPrivate(uid, groupinfo, msg, bot) {
     try {
         var confirmtext = util.format(langres['confirmPrivateGroupInfo'], groupinfo.id, groupinfo.title, groupinfo.invite_link, groupinfo.tag, groupinfo.desc);
@@ -356,11 +366,11 @@ async function enrollerConfirmEnroll(msg, bot) {
     if (session[msg.from.id] && session[msg.from.id].status == "confirmmsg") {
         var groupinfo = session[msg.from.id].argu
         groupinfo.creator = msg.from.id;
+        delete session[msg.from.id];
+        comlib.unsetLock(msg.from.id);
         var ret = comlib.doEnrollment(groupinfo);
         if (ret == 'new_public_queue') {
             try {
-                delete session[msg.from.id];
-                comlib.unsetLock(msg.from.id);
                 await bot.answerCallbackQuery({
                     callback_query_id: msg.id,
                     text: langres['dialogPubDone'],
@@ -375,8 +385,6 @@ async function enrollerConfirmEnroll(msg, bot) {
             }
         } else if (ret == 'new_private_queue') {
             try {
-                delete session[msg.from.id];
-                comlib.unsetLock(msg.from.id);
                 await bot.answerCallbackQuery({
                     callback_query_id: msg.id,
                     text: langres['dialogPrivDone'],
@@ -425,7 +433,7 @@ async function processCallbackButton(msg, type, bot) {
         case 'enroller_manual_channel':
             return displayChannelManual(msg, bot)
         case 'enroller:enroll':
-            return redirectToPrivateEnrollState(msg, bot)    
+            return redirectToPrivateEnrollState(msg, bot)
     }
 
     // common with param
@@ -867,6 +875,7 @@ module.exports = {
         ['callback_query', processCallbackButton],
         [/^(https:\/\/telegram.me\/joinchat\/.+)$/, processLink],
         [/^(https:\/\/t.me\/joinchat\/.+)$/, processLink],
+        [/https:\/\/t.me\/.+/, processUnIntendedLink],
         //[/^(http:\/\/telegra.ph\/.+)$/, processLink],
         [/^\/grouplink_update (https:\/\/telegram.me\/joinchat\/.+)$/, updatePrivateLink],
         [/^\/grouplink_update (https:\/\/t.me\/joinchat\/.+)$/, updatePrivateLink],

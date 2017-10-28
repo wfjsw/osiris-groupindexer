@@ -2,9 +2,15 @@
 
 const util = require('util');
 const he = require('he');
+const {
+    URL
+} = require('url')
 const tags = require('../config.gpindex.json')['gpindex_tags']
 const langres = require('../resources/gpindex_listing.json');
-const admin_id = require('../config.gpindex.json')['gpindex_admin'];
+const {
+    gpindex_admin,
+    groupsicon_prefix
+} = require('../config.gpindex.json')
 
 const single_inline_threshold = 10
 
@@ -15,7 +21,7 @@ function errorProcess(msg, bot, err) {
     var errorlog = '```\n' + err.stack + '```\n';
     _ga.tException(msg.from, err, true)
     console.error(err);
-    bot.sendMessage(admin_id, errorlog, {
+    bot.sendMessage(gpindex_admin, errorlog, {
         parse_mode: 'Markdown'
     });
 }
@@ -33,9 +39,20 @@ function truncateSearch(term) {
  * @param {String} target
  * @return {Object}
  */
-function wrapJoinDialog(is_public, id, title, tag, desc, target) {
+function wrapJoinDialog(is_public, id, title, tag, desc, target, is_official) {
+    let officialstate = ''
+    if (is_official) {
+        switch (parseInt(is_official)) {
+            case 1:
+                officialstate = '\n✅已通过官方身份验证'
+                break
+            case 2:
+                officialstate = '\n❌未通过官方身份验证'
+                break
+        }
+    }
     if (is_public) {
-        const message = util.format(langres['infoPubGroup'], id, title, target, tag, desc)
+        const message = util.format(langres['infoPubGroup'], id, title, target, tag + officialstate, desc)
         const keyboard = {
             inline_keyboard: [
                 [{
@@ -49,7 +66,7 @@ function wrapJoinDialog(is_public, id, title, tag, desc, target) {
             keyboard
         }
     } else {
-        const message = util.format(langres['infoPrivGroup'], id, title, tag, desc)
+        const message = util.format(langres['infoPrivGroup'], id, title, tag + officialstate, desc)
         const keyboard = {
             inline_keyboard: [
                 [{
@@ -78,8 +95,9 @@ async function processInlineById(msg, bot) {
                 query_result.title,
                 query_result.tag,
                 query_result.desc,
-                query_result.is_public ? query_result.username : `https://t.me/${_e.me.username}?start=getdetail=${query_result.id}`
-            )
+                query_result.is_public ? query_result.username : `https://t.me/${_e.me.username}?start=getdetail=${query_result.id}`,
+                query_result.extag['official']
+                )
             const result = [{
                 type: 'article',
                 id: query_result.id.toString(),
@@ -91,6 +109,9 @@ async function processInlineById(msg, bot) {
                     disable_web_page_preview: true
                 }
             }]
+            if (query_result.photo)
+                if (query_result.photo.small_file_id)
+                    result[0].thumb_url = new URL(query_result.photo.small_file_id, groupsicon_prefix)
             return await bot.answerInlineQuery(msg.id, result, {
                 next_offset: '',
                 cache_time: 300, //on production env
@@ -159,9 +180,10 @@ async function processInlineByName(msg, bot) {
                 ret.title,
                 ret.tag,
                 ret.desc,
-                ret.is_public ? ret.username : `https://t.me/${_e.me.username}?start=getdetail=${ret.id}`
-            )
-            result_array.push({
+                ret.is_public ? ret.username : `https://t.me/${_e.me.username}?start=getdetail=${ret.id}`,
+                ret.extag['official']
+                )
+            let item = {
                 type: 'article',
                 id: ret.id.toString(),
                 title: `${ret.title} # ${ret.tag}`,
@@ -171,7 +193,11 @@ async function processInlineByName(msg, bot) {
                     message_text: message,
                     disable_web_page_preview: true
                 }
-            })
+            }
+            if (ret.photo)
+                if (ret.photo.small_file_id)
+                    item.thumb_url = new URL(ret.photo.small_file_id, groupsicon_prefix)
+            result_array.push(item)
         })
         let next_offset
         if (total_length > (offset + single_inline_threshold))
@@ -222,16 +248,17 @@ async function processInlineByCategory(msg, bot) {
             result = result.slice(offset, offset + single_inline_threshold)
             result.forEach(ret => {
                 const {
-                message,
+                    message,
                     keyboard
-            } = wrapJoinDialog(ret.is_public,
-                        ret.id,
-                        ret.title,
-                        ret.tag,
-                        ret.desc,
-                        ret.is_public ? ret.username : `https://t.me/${_e.me.username}?start=getdetail=${ret.id}`
+                } = wrapJoinDialog(ret.is_public,
+                    ret.id,
+                    ret.title,
+                    ret.tag,
+                    ret.desc,
+                    ret.is_public ? ret.username : `https://t.me/${_e.me.username}?start=getdetail=${ret.id}`,
+                    ret.extag['official']
                     )
-                result_array.push({
+                let item = {
                     type: 'article',
                     id: ret.id.toString(),
                     title: `${ret.title} # ${ret.tag}`,
@@ -241,7 +268,11 @@ async function processInlineByCategory(msg, bot) {
                         message_text: message,
                         disable_web_page_preview: true
                     }
-                })
+                }
+                if (ret.photo)
+                    if (ret.photo.small_file_id)
+                        item.thumb_url = new URL(ret.photo.small_file_id, groupsicon_prefix)
+                result_array.push(item)
             })
             let next_offset
             if (total_length > (offset + single_inline_threshold))
@@ -267,7 +298,8 @@ async function processInlineQuery(msg, type, bot) {
     try {
         const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
         const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
-        if (!is_blocked && !(_e.plugins['gpindex_validateuser'] && !is_validated)) {
+        const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
+        if (!is_blocked && !(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_in_jvbao) {
             if (msg.query != '') {
                 if (/^##[0-9-]{5,}$/.test(msg.query)) {
                     _ga.tEvent(msg.from, 'inline', 'inline.queryById')

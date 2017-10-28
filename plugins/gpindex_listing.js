@@ -43,7 +43,7 @@ async function generateDynLink(gid, bot) {
     try {
         const new_link = await bot.exportChatInviteLink(gid)
         dynlink_cache[gid] = {
-            time: new Date().valueOf(),
+            time: Date.now(),
             link: new_link,
             displayed: false
         }
@@ -60,20 +60,20 @@ async function generateDynLink(gid, bot) {
 
 async function getDynLink(gid, bot) {
     if (dynlink_cache[gid]) {
-        if (!dynlink_cache[gid].displayed) {
+        /*if (!dynlink_cache[gid].displayed) {
             // generated in 5 min window, not displayed yet, display now
             dynlink_cache[gid].displayed = true
-            dynlink_cache[gid].time = new Date().valueOf()
+            dynlink_cache[gid].time = Date.now()
             setTimeout(generateDynLink, 5 * 60 * 1000, gid, bot)
             return dynlink_cache[gid].link
-        } else if ((new Date().valueOf() - dynlink_cache[gid].time) < 5 * 60 * 1000) {
+        } else */if ((Date.now() - dynlink_cache[gid].time) < 5 * 60 * 1000) {
             // in valid cache time
             return dynlink_cache[gid].link
         } else {
             // is exception, 5 min window regeneration not working, manually regenerate.
             const link = await generateDynLink(gid, bot)
             if (!link) return false
-            dynlink_cache[gid].displayed = true
+            // dynlink_cache[gid].displayed = true
             setTimeout(generateDynLink, 5 * 60 * 1000, gid, bot)
             return link
         }
@@ -82,10 +82,10 @@ async function getDynLink(gid, bot) {
         const link = await generateDynLink(gid, bot)
         /*dynlink_cache[gid] = {
             link,
-            time: new Date().valueOf()
+            time: Date.now()
         }*/
         if (!link) return false
-        dynlink_cache[gid].displayed = true
+        // dynlink_cache[gid].displayed = true
         setTimeout(generateDynLink, 5 * 60 * 1000, gid, bot)
         return link
     }
@@ -152,7 +152,8 @@ async function getList(msg, result, bot) {
         try {
             const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
             const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-            if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked) {
+            const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
+            if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && !is_in_jvbao) {
                 _ga.tEvent(msg.from, 'listing', 'listing.listTags')
                 let row = [],
                     i = 0;
@@ -192,7 +193,8 @@ async function sendFirstPageListByCategory(msg, bot) {
     try {
         const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
         const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-        if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked) {
+        const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
+        if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && !is_in_jvbao) {
             _ga.tEvent(msg.from, 'listing', 'listing.listGroups', msg.text)
             const recs = await comlib.getRecByTag(msg.text)
             let outmsg = generateList(recs)
@@ -227,7 +229,7 @@ async function sendFirstPageListByCategory(msg, bot) {
 }
 
 async function processText(msg, type, bot) {
-    if (!comlib.getLock(msg.from.id) && msg.chat.id > 0 && tags.indexOf(msg.text) > -1)
+    if (!comlib.getLock(msg.from.id) && msg.chat.id > 0 && tags.indexOf(msg.text) > -1 && !msg.forward_from_chat)
         return sendFirstPageListByCategory(msg, bot)
 }
 
@@ -235,7 +237,8 @@ async function pagination_editListByCategory(msg, bot, operator, query) {
     try {
         const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
         const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-        if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked) {
+        const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
+        if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && !is_in_jvbao) {
             const [category, current_page] = query.split('-')
             const recs = await comlib.getRecByTag(category)
             let outmsg = generateList(recs)
@@ -290,7 +293,7 @@ async function pagination_editListByCategory(msg, bot, operator, query) {
             } catch (e) {}
         }
     } catch (e) {
-        if (!e.message.match('message is not modified'))
+        if (!e.message.match('message is not modified') && !e.message.match('QUERY_ID_INVALID'))
             errorProcess(msg.message, bot, e)
     }
 }
@@ -301,7 +304,8 @@ async function doSearch(msg, result, bot) {
         try {
             const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
             const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-            if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked) {
+            const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
+            if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && !is_in_jvbao) {
                 let recs = await comlib.searchByName(truncateSearch(result[1]))
                 recs = recs.filter(record => tags.indexOf(record.tag) > -1)
                 if (recs.length > 0) {
@@ -339,10 +343,12 @@ async function doSearch(msg, result, bot) {
 
 
 async function getDetail(msg, result, bot) {
+    if (msg.chat.id < 0) return
     try {
         const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
         const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-        if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked) {
+        const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
+        if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && !is_in_jvbao) {
             const record = await comlib.getRecord(result[1])
             if (!record) {
                 return await bot.sendMessage(msg.chat.id, langres['errorGroupNotExist']);
@@ -506,7 +512,7 @@ module.exports = {
         [/^\/list$/, getList],
         ['text', processText],
         [/^\/start getdetail=([0-9-]{6,})/, getDetail],
-        [/^\/getdetail ([0-9-]{6,})/, getDetail],
+        //[/^\/getdetail ([0-9-]{6,})/, getDetail],
         [/^\/mygroups$/, getMyGroups],
         [/^[^/](.+)/, doSearch],
         ['callback_query', processCBButton]

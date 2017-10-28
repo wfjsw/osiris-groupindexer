@@ -2,5 +2,7 @@
     "gpindex_db": { "host": "172.17.0.2", "port": 28015, "db": "groupsbot" },
     "gpindex_admin": -40470611,
     "gpindex_tags": ["三次元","ACG","游戏","科学上网","影音","闲聊水","软件","硬件","政治经济","同城","商业服务","NSFW","其他"],
-    "gpindex_channel": "@zh_groups"
+    "gpindex_channel": "@zh_groups",
+    "groupsicon_prefix": "",
+    "groupsicon_location": ""
  }

@@ -1,7 +1,7 @@
 const langCodeBanned = ['fa-IR']
-const halal_display_name = /sharma/i
-const max_halal_char_threshold = 10
-const max_halal_pct_threshold = 0.45
+const halal_display_name = /sharma|m\.b\.a|pollsciemo|amarhs|moham/i
+const max_halal_char_threshold = 7
+const max_halal_pct_threshold = 0.3
 const send_capture_threshold = 120
 const send_notification_threshold = 120
 const kick_wait_threshold = 30
@@ -45,7 +45,7 @@ function genHalalKB_G(gid, uid) {
 async function uploadHalal(msg, bot) {
     let send = false
     if (last_sent_capture[msg.from.id.toString()]) {
-        if ((Math.floor(new Date().valueOf() / 1000) - last_sent_capture[msg.from.id.toString()]) > send_capture_threshold) {
+        if ((Math.floor(Date.now() / 1000) - last_sent_capture[msg.from.id.toString()]) > send_capture_threshold) {
             send = true
         }
     } else {
@@ -86,12 +86,29 @@ function testHalal(str) {
     return false
 }
 
+function gcArray() {
+    for (let i in last_sent_group)
+        if (last_sent_group[i] > send_notification_threshold)
+            delete last_sent_group[i]
+    for (let i in last_sent_capture)
+        if (last_sent_capture[i] > send_capture_threshold)
+            delete last_sent_capture[i]
+    for (let i in last_kicked)
+        if (last_kicked[i] > kick_wait_threshold)
+            delete last_kicked[i]
+}
+
 async function privateLanguageDetection(msg, bot) {
-    if (langCodeBanned.indexOf(msg.from.language_code) > -1) {
+    let {
+        description
+    } = await bot.getChat(msg.from.id)
+    let display_name = msg.from.first_name + (msg.from.last_name || '')
+    let is_halal = testHalal(display_name) || testHalal(description || '') || !!display_name.match(halal_display_name) || langCodeBanned.indexOf(msg.from.language_code) > -1
+    if (is_halal) {
         _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.languageBanned')
         let send = false
         if (last_sent_capture[msg.from.id.toString()]) {
-            if ((Math.floor(new Date().valueOf() / 1000) - last_sent_capture[msg.from.id.toString()]) > send_capture_threshold) {
+            if ((Math.floor(Date.now() / 1000) - last_sent_capture[msg.from.id.toString()]) > send_capture_threshold) {
                 send = true
             }
         } else {
@@ -109,18 +126,19 @@ async function privateLanguageDetection(msg, bot) {
         await comlib.UserFlag.setUserFlag(msg.from.id, 'halal', 1)
         return true
     }
+    return false
 }
 
 async function examineDisplayName(msg, new_member, bot) {
     let display_name = new_member.first_name + (new_member.last_name || '')
     const is_kick_halal_name = !!(await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:antihalalenhanced'))
-    let is_halal = testHalal(display_name) || !!display_name.match(halal_display_name)
+    let is_halal = testHalal(display_name) || !!display_name.match(halal_display_name) || langCodeBanned.indexOf(new_member.language_code) > -1 || langCodeBanned.indexOf(msg.from.language_code) > -1
     if (is_halal) {
         _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.display-name')
         await bot.sendMessage(chan_capture, `清真加群\n\n${util.inspect(msg.chat)}\n搞事的人\n${util.inspect(msg.from)}\n清真\n${util.inspect(new_member)}`, {
             reply_markup: genHalalKB(new_member.id)
         })
-        if (is_kick_halal_name) {
+        if (is_kick_halal_name || new_member.is_bot) {
             kickByHalal(msg.chat, new_member, false, bot)
         }
     }
@@ -131,7 +149,7 @@ async function examineSticker(msg, bot) {
     let stickerset = msg.sticker.set_name
     let stickersetname = sticker_pack_name_cache[stickerset] || (await bot.getStickerSet(stickerset)).title
     sticker_pack_name_cache[stickerset] = stickersetname
-    let is_halal = testHalal(stickersetname) || testHalal(display_name + stickersetname)
+    let is_halal = testHalal(stickersetname) || testHalal(display_name + stickersetname) || langCodeBanned.indexOf(msg.from.language_code) > -1
     if (is_halal) {
         _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.sticker')
         await uploadHalal(msg, bot)
@@ -146,10 +164,20 @@ async function examineNormalMsg(msg, bot) {
     let need_test = ''
     let display_name = msg.from.first_name + (msg.from.last_name || '')
     need_test += display_name
-    if (msg.text) need_test += msg.text
-    if (msg.caption) need_test += msg.caption
-    if (msg.forward_from_chat) need_test += msg.forward_from_chat.title
-    let is_halal = testHalal(need_test)
+    let is_halal = testHalal(display_name) || langCodeBanned.indexOf(msg.from.language_code) > -1
+    if (msg.text) {
+        need_test += msg.text
+        is_halal = is_halal || testHalal(msg.text)
+    }
+    if (msg.caption) {
+        need_test += msg.caption
+        is_halal = is_halal || testHalal(msg.caption)
+    }
+    if (msg.forward_from_chat) {
+        need_test += msg.forward_from_chat.title
+        is_halal = is_halal || testHalal(msg.forward_from_chat.title)
+    }
+    is_halal = is_halal || testHalal(need_test)
     if (is_halal) {
         // _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.normal-msg')
         await uploadHalal(msg, bot)
@@ -168,24 +196,24 @@ async function kickByHalal(group, user, is_flag, bot) {
         usermsg += `</a> (${user.id})`
         try {
             if (last_kicked[group.id.toString() + user.id.toString()]) {
-                if ((Math.floor(new Date().valueOf() / 1000) - last_kicked[group.id.toString() + user.id.toString()]) > kick_wait_threshold) {
-                    last_kicked[group.id.toString() + user.id.toString()] = Math.floor(new Date().valueOf() / 1000)
+                if ((Math.floor(Date.now() / 1000) - last_kicked[group.id.toString() + user.id.toString()]) > kick_wait_threshold) {
+                    last_kicked[group.id.toString() + user.id.toString()] = Math.floor(Date.now() / 1000)
                     await bot.kickChatMember(group.id, user.id)
                 }
             } else {
-                last_kicked[group.id.toString() + user.id.toString()] = Math.floor(new Date().valueOf() / 1000)
+                last_kicked[group.id.toString() + user.id.toString()] = Math.floor(Date.now() / 1000)
                 await bot.kickChatMember(group.id, user.id)
             }
             let send = false
             if (last_sent_group[group.id.toString() + user.id.toString()]) {
-                if ((Math.floor(new Date().valueOf() / 1000) - last_sent_group[group.id.toString() + user.id.toString()]) > send_notification_threshold) {
+                if ((Math.floor(Date.now() / 1000) - last_sent_group[group.id.toString() + user.id.toString()]) > send_notification_threshold) {
                     send = true
                 }
             } else {
                 send = true
             }
             if (send) {
-                last_sent_group[group.id.toString() + user.id.toString()] = Math.floor(new Date().valueOf() / 1000)
+                last_sent_group[group.id.toString() + user.id.toString()] = Math.floor(Date.now() / 1000)
                 let message = !is_flag ? `#HALAL #ENFORCED 已检测到一个清真并且吃掉了。如果出现误报请群组管理员点击下面的按钮临时解封并上报。\n\n${usermsg}` : `#HALAL #ENFORCED 已检测到一个清真并且吃掉了。如果出现误处理请联系工单加入清真白名单。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}`
                 await bot.sendMessage(group.id, message, {
                     parse_mode: 'HTML',
@@ -196,14 +224,14 @@ async function kickByHalal(group, user, is_flag, bot) {
         } catch (e) {
             let send = false
             if (last_sent_group[group.id.toString() + user.id.toString()]) {
-                if ((Math.floor(new Date().valueOf() / 1000) - last_sent_group[group.id.toString() + user.id.toString()]) > send_notification_threshold) {
+                if ((Math.floor(Date.now() / 1000) - last_sent_group[group.id.toString() + user.id.toString()]) > send_notification_threshold) {
                     send = true
                 }
             } else {
                 send = true
             }
             if (send) {
-                last_sent_group[group.id.toString() + user.id.toString()] = Math.floor(new Date().valueOf() / 1000)
+                last_sent_group[group.id.toString() + user.id.toString()] = Math.floor(Date.now() / 1000)
                 await bot.sendMessage(group.id, `#HALAL 已检测到一个清真，如果出现误处理请联系工单加入清真白名单。如需自动吃掉，请授予机器人封禁用户的权限。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}`, {
                     parse_mode: 'HTML'
                 })
@@ -237,7 +265,7 @@ async function preProcessStack(msg, bot) {
                 is_halal = true
             }
             if (msg.sticker) {
-                // is_halal = await examineSticker(msg, bot) || is_halal
+                is_halal = await examineSticker(msg, bot) || is_halal
             } else {
                 is_halal = await examineNormalMsg(msg, bot) || is_halal
             }
@@ -324,6 +352,27 @@ async function processCallbackQuery(msg, type, bot) {
     }
 }
 
+async function manuallyHalal(msg, result, bot) {
+    if (msg.chat.id > 0) return
+    try {
+        const is_admin = !(['left', 'kicked'].indexOf((await bot.getChatMember(ADMIN_GROUP, msg.from.id)).status) > -1)
+        if (!is_admin) return
+        const replyto = msg.reply_to_message
+        if (!replyto) {
+            return await bot.sendMessage(msg.chat.id, 'Unable to locate sender')
+        }
+        let target = msg.reply_to_message.from.id
+        // await uploadHalal(replyto, bot)
+        await comlib.UserFlag.setUserFlag(target, 'block', 1)
+        await comlib.UserFlag.setUserFlag(target, 'halal', 1)
+        await kickByHalal(msg.chat, msg.reply_to_message.from, true, bot)
+    } catch (e) {
+        console.error(e.stack)
+    }
+
+
+}
+
 async function debugTestHalal(msg, result, bot) {
     let need_test = ''
     let display_name = msg.reply_to_message.from.first_name + (msg.reply_to_message.from.last_name || '')
@@ -341,10 +390,12 @@ module.exports = {
         _e = e;
         comlib = _e.libs['gpindex_common'];
         _ga = e.libs['ga'];
+        setInterval(gcArray, 5 * 60 * 1000)
     },
     preprocess: preProcessStack,
     run: [
         ['callback_query', processCallbackQuery],
-        [/^\/debug testHalalPoint/, debugTestHalal]
+        [/^\/debug testHalalPoint/, debugTestHalal],
+        [/^\/halal/, manuallyHalal]
     ]
 }

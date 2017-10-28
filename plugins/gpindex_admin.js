@@ -29,7 +29,7 @@ async function removeItem(msg, result, bot) {
             const ret = await comlib.doRemoval(extractId(result[1], msg.reply_to_message))
             return await bot.sendMessage(msg.chat.id, util.inspect(ret))
         } catch (e) {
-            return bot.sendMessage(msg.chat.id, e.stack)
+            return bot.sendMessage(msg.chat.id, e.message)
         }
     }
 }
@@ -40,7 +40,7 @@ async function sendMsg(msg, result, bot) {
             const ret = await _e.bot.sendMessage(parseInt(extractId(result[1], msg.reply_to_message)), result[2])
             return await bot.sendMessage(msg.chat.id, util.inspect(ret))
         } catch (e) {
-            return bot.sendMessage(msg.chat.id, e.stack);
+            return bot.sendMessage(msg.chat.id, e.message);
         }
     }
 }
@@ -56,7 +56,7 @@ async function markInvaild(msg, result, bot) {
                 return bot.sendMessage(msg.chat.id, 'Not Found')
             }
         } catch (e) {
-            return bot.sendMessage(msg.chat.id, 'Failed\n\n' + e.stack)
+            return bot.sendMessage(msg.chat.id, 'Failed\n\n' + e.message)
         }
     }
 }
@@ -73,7 +73,7 @@ async function doPublish(msg, result, bot) {
                 return bot.sendMessage(msg.chat.id, 'Not Found')
             }
         } catch (e) {
-            return bot.sendMessage(msg.chat.id, 'Failed\n\n' + e.stack)
+            return bot.sendMessage(msg.chat.id, 'Failed\n\n' + e.message)
         }
     }
 }
@@ -114,7 +114,36 @@ async function doImportPublicGroup(msg, result, bot) {
                     bot.sendMessage(msg.chat.id, 'Cannot get creator status')
                 }
             } catch (e) {
-                return bot.sendMessage(msg.chat.id, 'Failed\n\n' + e.stack);
+                return bot.sendMessage(msg.chat.id, 'Failed\n\n' + e.message);
+            }
+        } else return bot.sendMessage(msg.chat.id, 'Failed to parse Input' + util.inspect(result))
+    }
+}
+
+async function doImportAnonPublicGroup(msg, result, bot) {
+    let [gname, tag, desc] = result.slice(1)
+    let ginfo = {}
+    if (msg.chat.id == admin_id) {
+        if (gname && tag && desc) {
+            try {
+                const chat = await _e.bot.getChat(gname)
+                const record = await comlib.getRecord(chat.id)
+                let admins
+                if (record) {
+                    return bot.sendMessage(msg.chat.id, 'Already Exist.')
+                }
+                ginfo = Object.assign(ginfo, chat)
+                ginfo.creator = 0
+                ginfo.is_public = true
+                ginfo.tag = tag
+                ginfo.desc = desc
+                delete ginfo['pinned_message']
+                delete ginfo['all_members_are_administrators']
+                delete ginfo['invite_link']
+                const db_ret = await comlib.silentInsert(ginfo);
+                    bot.sendMessage(msg.chat.id, `${util.inspect(db_ret)}\n\n${util.inspect(ginfo)}`)
+            } catch (e) {
+                return bot.sendMessage(msg.chat.id, 'Failed\n\n' + e.message);
             }
         } else return bot.sendMessage(msg.chat.id, 'Failed to parse Input' + util.inspect(result))
     }
@@ -135,7 +164,7 @@ async function doTagMove(msg, result, bot) {
                 return bot.sendMessage(msg.chat.id, 'Not Found')
             }
         } catch (e) {
-            return bot.sendMessage(msg.chat.id, 'Failed\n\n' + e.stack)
+            return bot.sendMessage(msg.chat.id, 'Failed\n\n' + e.message)
         }
     }
 }
@@ -150,7 +179,7 @@ async function doRemoveFeedByID(msg, result, bot) {
             })
             return bot.sendMessage(msg.chat.id, 'Done. \n\n' + util.inspect(ret))
         } catch (e) {
-            return bot.sendMessage(msg.chat.id, 'Failed\n\n' + e.stack)
+            return bot.sendMessage(msg.chat.id, 'Failed\n\n' + e.message)
         }
     }
 }
@@ -161,7 +190,7 @@ async function getChat(msg, result, bot) {
             const ret = await bot.getChat(parseInt(extractId(result[1], msg.reply_to_message)))
             return await bot.sendMessage(msg.chat.id, util.inspect(ret));
         } catch (e) {
-            return bot.sendMessage(msg.chat.id, e.stack);
+            return bot.sendMessage(msg.chat.id, e.message);
         }
 }
 
@@ -198,7 +227,17 @@ async function getChatAdmin(msg, result, bot) {
             message += 'P: can_promote_members\n'
             return await bot.sendMessage(msg.chat.id, message);
         } catch (e) {
-            return bot.sendMessage(msg.chat.id, e.stack);
+            return bot.sendMessage(msg.chat.id, e.message);
+        }
+}
+
+async function getRecord(msg, result, bot) {
+    if (msg.chat.id == admin_id)
+        try {
+            const ret = await comlib.getRecord(parseInt(extractId(result[1], msg.reply_to_message)))
+            return await bot.sendMessage(msg.chat.id, util.inspect(ret));
+        } catch (e) {
+            return bot.sendMessage(msg.chat.id, e.message);
         }
 }
 
@@ -215,10 +254,13 @@ async function doForceUpdate(msg, result, bot) {
             } else {
                 updation.is_public = false
             }
+            if (chat.photo) {
+                updation.photo = chat.photo
+            }
             const db_ret = await comlib.silentUpdate(chat.id, updation)
             return bot.sendMessage(msg.chat.id, util.inspect(db_ret))
         } catch (e) {
-            return bot.sendMessage(msg.chat.id, e.stack)
+            return bot.sendMessage(msg.chat.id, e.message)
         }
 
 }
@@ -229,7 +271,7 @@ async function getUserFlag(msg, result, bot) {
             const flag_ret = await comlib.UserFlag.queryUserFlag(extractId(result[1], msg.reply_to_message), result[2])
             return bot.sendMessage(msg.chat.id, util.inspect(flag_ret))
         } catch (e) {
-            return bot.sendMessage(msg.chat.id, e.stack)
+            return bot.sendMessage(msg.chat.id, e.message)
         }
     }
 }
@@ -245,7 +287,7 @@ async function setUserFlag(msg, result, bot) {
             const db_ret = await comlib.UserFlag.setUserFlag(extractId(result[1], msg.reply_to_message), result[2], parseInt(value))
             return bot.sendMessage(msg.chat.id, util.inspect(db_ret))
         } catch (e) {
-            return bot.sendMessage(msg.chat.id, e.stack)
+            return bot.sendMessage(msg.chat.id, e.message)
         }
     }
 }
@@ -256,7 +298,7 @@ async function getGroupExTag(msg, result, bot) {
             const flag_ret = await comlib.GroupExTag.queryGroupExTag(extractId(result[1], msg.reply_to_message), result[2])
             return bot.sendMessage(msg.chat.id, util.inspect(flag_ret));
         } catch (e) {
-            bot.sendMessage(msg.chat.id, e.stack);
+            bot.sendMessage(msg.chat.id, e.message);
         }
     }
 
@@ -268,7 +310,7 @@ async function setGroupExTag(msg, result, bot) {
             const db_ret = await comlib.GroupExTag.setGroupExTag(extractId(result[1], msg.reply_to_message), result[2], parseInt(result[3]))
             return bot.sendMessage(msg.chat.id, util.inspect(db_ret));
         } catch (e) {
-            return bot.sendMessage(msg.chat.id, e.stack);
+            return bot.sendMessage(msg.chat.id, e.message);
         }
 }
 
@@ -292,11 +334,13 @@ module.exports = {
         [/^\/removeitem ([0-9-]{6,}|reply)$/, removeItem],
         [/^\/markinvalid ([0-9-]{6,}|reply)$/, markInvaild],
         [/^\/import_pub (@[_A-Za-z0-9]{4,}) ([^\n\s]+) ((?:.|\n)+)/m, doImportPublicGroup],
-        [/^\/tagmove ([0-9-]{6,}) ([^\n\s]+)$/, doTagMove],
+        [/^\/import_anonpub (@[_A-Za-z0-9]{4,}) ([^\n\s]+) ((?:.|\n)+)/m, doImportAnonPublicGroup],
+        [/^\/tagmove ([0-9-]{6,}|reply) ([^\n\s]+)$/, doTagMove],
         [/^\/rmfeedid ([0-9]{1,})$/, doRemoveFeedByID],
         [/^\/rmfeedid https:\/\/(?:telegram.me|t.me)\/[_A-Za-z0-9]{4,}\/([0-9]{1,})$/, doRemoveFeedByID],
         [/^\/getchat ([0-9-]{6,}|@[a-zA-Z0-9_]{5,}|reply)$/, getChat],
         [/^\/getadmin ([0-9-]{6,}|@[a-zA-Z0-9_]{5,}|reply)$/, getChatAdmin],
+        [/^\/getrecord ([0-9-]{6,}|@[a-zA-Z0-9_]{5,}|reply)$/, getRecord],
         [/^\/forceupdate ([0-9-]{6,}|@[a-zA-Z0-9_]{5,}|reply)$/, doForceUpdate],
         [/^\/getflag ([0-9-]{6,}|reply) ([^\s]+)$/, getUserFlag],
         [/^\/setflag ([0-9-]{6,}|reply) ([^\s]+) ([^\s]+)$/, setUserFlag],

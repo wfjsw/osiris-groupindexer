@@ -2,33 +2,117 @@
 var _e, _ga
 
 const util = require('util')
-const ADMIN_GROUP = require('../config.gpindex.json')['gpindex_admin'];
+const path = require('path')
+const fs = require('fs')
+const rp = require('request-promise')
+const {
+    gpindex_admin,
+    groupsicon_location
+} = require('../config.gpindex.json')
 
-async function passiveUpdate(msg, bot) {
+async function passiveUpdate(chat, record, bot) {
+    let gid = chat.id
+    var updation = {},
+        updatable = false;
+    if (record.title != chat.title) {
+        updation.title = chat.title
+        updatable = true
+    }
+    if (record.username && chat.username && record.username != chat.username) {
+        updation.username = chat.username
+        updatable = true
+    }
+    if (updatable == true) return _e.libs['gpindex_common'].silentUpdate(gid, updation)
+}
+
+async function passiveUpdateOnGroupMsg(msg, bot) {
     if (msg.chat.id < 0) {
-        var gid = msg.chat.id
         try {
-            const record = await _e.libs['gpindex_common'].getRecord(gid)
-            var updation = {},
-                updatable = false;
-            if (record && record.title != msg.chat.title) {
-                updation.title = msg.chat.title;
-                updatable = true;
-            }
-            if (record && record.username && msg.chat.username && record.username != msg.chat.username) {
-                updation.username = msg.chat.username;
-                updatable = true
-            }
-            if (updatable == true) return _e.libs['gpindex_common'].silentUpdate(gid, updation);
+            const record = await _e.libs['gpindex_common'].getRecord(msg.chat.id)
+            if (!record) return
+            return await passiveUpdate(msg.chat, record, bot)
         } catch (e) {
-            console.error(e.stack)
+            console.error(e.message)
             _ga.tException(msg.from.id, e, false)
         }
     }
 }
 
 async function passiveUpdateChannel(msg, type, bot) {
-    return passiveUpdate(msg, bot)
+    try {
+        const record = await _e.libs['gpindex_common'].getRecord(msg.chat.id)
+        if (!record) return
+        return await passiveUpdate(msg.chat, record, bot)
+    } catch (e) {
+        console.error(e.message)
+    }
+}
+
+async function passiveUpdateOnGetDetail(msg, result, bot) {
+    setImmediate(async () => {
+        try {
+            let gid = parseInt(result[1])
+            if (!(gid < 0)) return
+            const record = await _e.libs['gpindex_common'].getRecord(gid)
+            if (!record) return
+            let chat = await bot.getChat(gid)
+            await passiveUpdate(chat, record, bot)
+            //if (chat.photo) {
+            //    if (record.photo.small_file_id != chat.photo.small_file_id)
+            //        await fetchChatPhoto(chat, bot)
+            //} else {
+                await fetchChatPhoto(chat, bot)
+            //}
+        } catch (e) {
+            console.error(e.message)
+            _ga.tException(msg.from.id, e, false)
+        }
+    })
+}
+
+async function fetchChatPhoto(chat, bot) {
+    async function downloadPhoto(id, loc, bot) {
+        let url = await bot.getFileLink(id)
+        let location = path.join(loc, id + '.jpg')
+        return rp(url).pipe(fs.createWriteStream(location))
+    }
+    const {
+        photo
+    } = chat
+    if (photo) {
+        await Promise.all([
+            downloadPhoto(photo.small_file_id, groupsicon_location, bot),
+            downloadPhoto(photo.big_file_id, groupsicon_location, bot)
+        ])
+        await _e.libs['gpindex_common'].silentUpdate(chat.id, {
+            photo
+        })
+    } else {
+        await _e.libs['gpindex_common'].silentUpdate(chat.id, {
+            'photo': {
+                small_file_id: '',
+                big_file_id: ''
+            }
+        })
+    }
+}
+
+async function fetchChatOnEnrollment(upstreaminfo) {
+    const bot = _e.bot
+    let chat = await bot.getChat(upstreaminfo.id)
+    await fetchChatPhoto(chat, bot)
+}
+
+async function updateChatPhoto(msg, type, bot) {
+    try {
+        const record = await _e.libs['gpindex_common'].getRecord(chat.id)
+        if (!record) return
+        let chat = bot.getChat(msg.chat.id)
+        return await fetchChatPhoto(chat, bot)
+    } catch (e) {
+        console.error(e.message)
+        _ga.tException(msg.from.id, e, false)
+    }
 }
 
 async function doMigrate(msg, type, bot) {
@@ -41,14 +125,15 @@ async function doMigrate(msg, type, bot) {
         })
         const rm_stat = await comlib.doRemoval(msg.migrate_from_chat_id)
         const ins_stat = await comlib.silentInsert(new_data)
-        await bot.sendMessage(ADMIN_GROUP, `migrated with me: ${msg.migrate_from_chat_id} => ${msg.chat.id}\n\n${util.inspect(rm_stat)}\n${util.inspect(ins_stat)}`)
-        await bot.sendMessage(msg.chat.id, '已成功为您转移索引数据到升级后的超级群。请及时使用 `/grouplink_update 新链接` 更新您在索引中注册的邀请链接。转公开群可创建公开链接之后直接使用 `/update` 指令更新。', {
+        await bot.sendMessage(gpindex_admin, `migrated with me: ${msg.migrate_from_chat_id} => ${msg.chat.id}\n\n${util.inspect(rm_stat)}\n${util.inspect(ins_stat)}`)
+        await bot.sendMessage(msg.chat.id, '已成功为您转移索引数据到升级后的超级群。创建公开链接之后请点击 `/update` 更新。', {
             parse_mode: 'Markdown'
         })
+        comlib.event.emit('new_private_commit', new_data)
         // _ga.tEvent(msg.chat, 'passiveUpdate', 'passiveUpdate.chatMigrate')
     } catch (e) {
         console.error(e)
-        await bot.sendMessage(ADMIN_GROUP, util.inspect(e.stack))
+        await bot.sendMessage(gpindex_admin, util.inspect(e.stack))
         _ga.tException(msg.chat.id, e, false)
     }
 }
@@ -58,10 +143,10 @@ async function notifyMigrate(msg, type, bot) {
         const comlib = _e.libs['gpindex_common']
         const old_data = await comlib.getRecord(msg.migrate_to_chat_id)
         if (!old_data) return
-        await bot.sendMessage(ADMIN_GROUP, `migrating: ${msg.migrate_from_chat_id} => ${msg.chat.id}`)
+        await bot.sendMessage(gpindex_admin, `migrating: ${msg.migrate_from_chat_id} => ${msg.chat.id}`)
     } catch (e) {
         console.error(e)
-        await bot.sendMessage(ADMIN_GROUP, util.inspect(e.stack))
+        await bot.sendMessage(gpindex_admin, util.inspect(e.stack))
         _ga.tException(msg.chat.id, e, false)
     }
 }
@@ -69,7 +154,7 @@ async function notifyMigrate(msg, type, bot) {
 async function notifyLeave(msg, type, bot) {
     try {
         if (msg.left_chat_member.id == _e.me.id) {
-            return await bot.sendMessage(ADMIN_GROUP, `Leaving ${msg.chat.id}\n${util.inspect(msg.chat)}`)
+            return await bot.sendMessage(gpindex_admin, `Leaving ${msg.chat.id}\n${util.inspect(msg.chat)}`)
         }
     } catch (e) {
         console.error(e)
@@ -78,14 +163,24 @@ async function notifyLeave(msg, type, bot) {
 
 module.exports = {
     init: (e) => {
-        _e = e;
-        _ga = e.libs['ga'];
+        _e = e
+        _ga = e.libs['ga']
+        let eventbus = e.libs['gpindex_common'].event
+        eventbus.on('fetch_chat_photo', fetchChatPhoto)
+        eventbus.on('new_public_commit', fetchChatOnEnrollment)
+        eventbus.on('update_public_data', fetchChatOnEnrollment)
+        eventbus.on('new_private_commit', fetchChatOnEnrollment)
+        eventbus.on('update_private_data', fetchChatOnEnrollment)        
     },
-    preprocess: passiveUpdate,
+    preprocess: passiveUpdateOnGroupMsg,
     run: [
         ['migrate_from_chat_id', doMigrate],
         ['migrate_to_chat_id', notifyMigrate],
         ['left_chat_member', notifyLeave],
-        ['channel_post', passiveUpdateChannel]
+        ['channel_post', passiveUpdateChannel],
+        ['new_chat_photo', updateChatPhoto],
+        ['delete_chat_photo', updateChatPhoto],
+        [/^\/start getdetail=([0-9-]{6,})/, passiveUpdateOnGetDetail],
+        [/^\/getdetail=([0-9-]{6,})/, passiveUpdateOnGetDetail],
     ]
 }

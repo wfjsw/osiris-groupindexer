@@ -35,7 +35,7 @@ function sendGCDLink(msg, result, bot) {
 }
 
 function sendLink(msg, link, bot) {
-    return bot.sendMessage(msg.from.id, '欢迎加入 “群主信息交流小组”，链接有效期为三分钟，请勿传播。\n\n请注意此群组仅为应急通讯使用，如果有日常使用的问题请到 @newbie_chat 询问。', {
+    return bot.sendMessage(msg.from.id, '欢迎加入 “群主信息交流小组”，链接有效期为三分钟，请勿传播。\n\n请注意此群组仅为应急通讯使用，如果有日常使用的问题请到 @newbie_chat 询问。\n群主必阅：https://wfjsw.gitbooks.io/tgcn-groupindex-reference/', {
         reply_to_message_id: msg.message_id,
         reply_markup: {inline_keyboard:[[{text: '加入', url: link}]]}
     })
