@@ -86,7 +86,9 @@ async function antiHalal(user, gid, bot, operator) {
             await comlib.GroupExTag.setGroupExTag(gid, 'feature:antihalal', 0)
             return '已成功关闭。'
     }
-} async function antiHalalEnhanced(user, gid, bot, operator) {
+}
+
+async function antiHalalEnhanced(user, gid, bot, operator) {
     switch (operator) {
         case 'enable':
             _ga.tEvent(user, 'featureswitch', 'featureswitch.antiHalalEnhanced.enabled')
@@ -95,6 +97,19 @@ async function antiHalal(user, gid, bot, operator) {
         case 'disable':
             _ga.tEvent(user, 'featureswitch', 'featureswitch.antiHalalEnhanced.disabled')
             await comlib.GroupExTag.setGroupExTag(gid, 'feature:antihalalenhanced', 0)
+            return '已成功关闭。'
+    }
+}
+
+async function antiBot(user, gid, bot, operator) {
+    switch (operator) {
+        case 'enable':
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.antiBot.enabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:antibot', 1)
+            return '已成功启用自动移除机器人。必需权限：Ban Users'
+        case 'disable':
+            _ga.tEvent(user, 'featureswitch', 'featureswitch.antiBot.disabled')
+            await comlib.GroupExTag.setGroupExTag(gid, 'feature:antibot', 0)
             return '已成功关闭。'
     }
 }
@@ -115,6 +130,8 @@ async function switchFeature(user, gid, operator, feature_name, bot) {
             return antiHalal(user, gid, bot, operator)
         case 'antihalalenhanced':
             return antiHalalEnhanced(user, gid, bot, operator)
+        case 'antibot':
+            return antiBot(user, gid, bot, operator)
         default:
             return await bot.sendMessage(gid, '请阅读管理功能说明书\nhttps://wfjsw.gitbooks.io/tgcn-groupindex-reference/content/administration-functions.html')
     }

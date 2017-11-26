@@ -35,7 +35,7 @@
     "confirmPublicChanInfo": "您正在提交一个公共频道。请认真检查下面的信息：\n唯一识别ID: %s\n频道身份: @%s\n频道标题: %s\n分类: %s\n简介: \n%s",
     "confirmPrivateChanInfo": "您正在提交一个私有频道。请认真检查下面的信息：\n唯一识别ID: %s\n频道标题: %s\n邀请链接: %s\n分类: %s\n简介: \n%s",
     "errorNotCreator": "对不起，您不是创建者。",
-    "errorAlreadyExist": "对不起，数据库中已经存在该群组的信息，请使用 /update 指令更新或 /remove 指令删除。对于私有群组，请使用 '/grouplink_update 新链接' 更新群组的邀请链接。",
+    "errorAlreadyExist": "对不起，数据库中已经存在该群组的信息，请使用 `/update` 指令更新或 `/remove` 指令删除。对于私有群组，请使用 `/grouplink_update 新链接` 更新群组的邀请链接。",
     "errorNotIndexed": "抱歉，您的群组尚未进入索引，请私聊使用 /enroll 指令以提交索引。",
     "errorNotInGroup": "抱歉，该指令仅能在群组中执行。",
     "errorInvalidTag": "抱歉，该分类无效。有效分类为：\n%s",

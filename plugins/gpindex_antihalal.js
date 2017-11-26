@@ -1,6 +1,6 @@
 const langCodeBanned = ['fa-IR']
-const halal_display_name = /sharma|m\.b\.a|pollsciemo|amarhs|moham/i
-const max_halal_char_threshold = 7
+const halal_display_name = /sharma|pollsciemo|amarhs|moham|ali.*reza|amir|ahmed/i
+const max_halal_char_threshold = 5
 const max_halal_pct_threshold = 0.3
 const send_capture_threshold = 120
 const send_notification_threshold = 120
@@ -103,9 +103,9 @@ async function privateLanguageDetection(msg, bot) {
         description
     } = await bot.getChat(msg.from.id)
     let display_name = msg.from.first_name + (msg.from.last_name || '')
-    let is_halal = testHalal(display_name) || testHalal(description || '') || !!display_name.match(halal_display_name) || langCodeBanned.indexOf(msg.from.language_code) > -1
+    let is_halal = testHalal(display_name) || testHalal(description || '') || !!display_name.match(halal_display_name + (msg.from.username || '')) || langCodeBanned.indexOf(msg.from.language_code) > -1
     if (is_halal) {
-        _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.languageBanned')
+        // _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.languageBanned')
         let send = false
         if (last_sent_capture[msg.from.id.toString()]) {
             if ((Math.floor(Date.now() / 1000) - last_sent_capture[msg.from.id.toString()]) > send_capture_threshold) {
@@ -122,7 +122,7 @@ async function privateLanguageDetection(msg, bot) {
             })
         }
         // bot.sendMessage(msg.from.id, '抱歉，您无权使用此服务。')
-        await comlib.UserFlag.setUserFlag(msg.from.id, 'block', 1)
+        // await comlib.UserFlag.setUserFlag(msg.from.id, 'block', 1)
         await comlib.UserFlag.setUserFlag(msg.from.id, 'halal', 1)
         return true
     }
@@ -130,11 +130,12 @@ async function privateLanguageDetection(msg, bot) {
 }
 
 async function examineDisplayName(msg, new_member, bot) {
+    let inviter_display_name = msg.from.first_name + (msg.from.last_name || '')
     let display_name = new_member.first_name + (new_member.last_name || '')
     const is_kick_halal_name = !!(await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:antihalalenhanced'))
-    let is_halal = testHalal(display_name) || !!display_name.match(halal_display_name) || langCodeBanned.indexOf(new_member.language_code) > -1 || langCodeBanned.indexOf(msg.from.language_code) > -1
+    let is_halal = testHalal(inviter_display_name) || testHalal(display_name) || !!display_name.match(halal_display_name + (new_member.username || '')) || langCodeBanned.indexOf(new_member.language_code) > -1 || langCodeBanned.indexOf(msg.from.language_code) > -1
     if (is_halal) {
-        _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.display-name')
+        // _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.display-name')
         await bot.sendMessage(chan_capture, `清真加群\n\n${util.inspect(msg.chat)}\n搞事的人\n${util.inspect(msg.from)}\n清真\n${util.inspect(new_member)}`, {
             reply_markup: genHalalKB(new_member.id)
         })
@@ -219,7 +220,7 @@ async function kickByHalal(group, user, is_flag, bot) {
                     parse_mode: 'HTML',
                     reply_markup: is_flag ? null : genHalalKB_G(group.id, user.id)
                 })
-                _ga.tEvent(user, 'antiHalal', 'antiHalal.kicked')
+                // _ga.tEvent(user, 'antiHalal', 'antiHalal.kicked')
             }
         } catch (e) {
             let send = false
@@ -263,8 +264,7 @@ async function preProcessStack(msg, bot) {
             if (halal) {
                 await kickByHalal(msg.chat, msg.from, true, bot)
                 is_halal = true
-            }
-            if (msg.sticker) {
+            } else if (msg.sticker) {
                 is_halal = await examineSticker(msg, bot) || is_halal
             } else {
                 is_halal = await examineNormalMsg(msg, bot) || is_halal
@@ -292,7 +292,7 @@ async function processCallbackQuery(msg, type, bot) {
         switch (q) {
             case 'h':
                 if (is_superadmin) {
-                    await comlib.UserFlag.setUserFlag(uid, 'block', 1)
+                    // await comlib.UserFlag.setUserFlag(uid, 'block', 1)
                     await comlib.UserFlag.setUserFlag(uid, 'halal', 1)
                     await bot.editMessageText(`${msg.message.text}\n\n✅安拉胡阿克巴，已经上交给了真主安拉。老阿訇：${msg.from.first_name} ${msg.from.last_name}`, {
                         chat_id: msg.message.chat.id,
@@ -334,7 +334,7 @@ async function processCallbackQuery(msg, type, bot) {
                         message_id: msg.message.message_id,
                     })
                     await bot.sendMessage(chan_capture, `${util.inspect(msg.message.chat)}\n管理员 ${msg.from.first_name} ${msg.from.last_name} \n 表示 ${uid} 不清真`)
-                    tempwhitelist[msg.chat.id.toString() + msg.from.id.toString()] = true
+                    tempwhitelist[msg.message.chat.id.toString() + uid.toString()] = true
                     try {
                         await bot.unbanChatMember(msg.message.chat.id, uid)
                     } catch (e) {}
@@ -377,10 +377,20 @@ async function debugTestHalal(msg, result, bot) {
     let need_test = ''
     let display_name = msg.reply_to_message.from.first_name + (msg.reply_to_message.from.last_name || '')
     need_test += display_name
-    if (msg.reply_to_message.text) need_test += msg.reply_to_message.text
-    if (msg.reply_to_message.caption) need_test += msg.reply_to_message.caption
-    if (msg.reply_to_message.forward_from_chat) need_test += msg.reply_to_message.forward_from_chat.title
-    let is_halal = testHalal(need_test)
+    let is_halal = testHalal(display_name) || langCodeBanned.indexOf(msg.reply_to_message.from.language_code) > -1
+    if (msg.reply_to_message.text) {
+        need_test += msg.reply_to_message.text
+        is_halal = is_halal || testHalal(msg.reply_to_message.text)
+    }
+    if (msg.reply_to_message.caption) {
+        need_test += msg.reply_to_message.caption
+        is_halal = is_halal || testHalal(msg.reply_to_message.caption)
+    }
+    if (msg.reply_to_message.forward_from_chat) {
+        need_test += msg.reply_to_message.forward_from_chat.title
+        is_halal = is_halal || testHalal(msg.reply_to_message.forward_from_chat.title)
+    }
+    is_halal = is_halal || testHalal(need_test)
     await bot.sendMessage(msg.chat.id, `testHalal: ${is_halal}`)
 
 }

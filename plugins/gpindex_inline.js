@@ -2,6 +2,7 @@
 
 const util = require('util');
 const he = require('he');
+const b64url = require('base64-url')
 const {
     URL
 } = require('url')
@@ -95,9 +96,9 @@ async function processInlineById(msg, bot) {
                 query_result.title,
                 query_result.tag,
                 query_result.desc,
-                query_result.is_public ? query_result.username : `https://t.me/${_e.me.username}?start=getdetail=${query_result.id}`,
+                query_result.is_public ? query_result.username : `https://t.me/${_e.me.username}?start=DEC-${b64url.encode(`getdetail=${query_result.id}`)}`,
                 query_result.extag['official']
-                )
+            )
             const result = [{
                 type: 'article',
                 id: query_result.id.toString(),
@@ -180,9 +181,9 @@ async function processInlineByName(msg, bot) {
                 ret.title,
                 ret.tag,
                 ret.desc,
-                ret.is_public ? ret.username : `https://t.me/${_e.me.username}?start=getdetail=${ret.id}`,
+                ret.is_public ? ret.username : `https://t.me/${_e.me.username}?start=DEC-${b64url.encode(`getdetail=${ret.id}`)}`,
                 ret.extag['official']
-                )
+            )
             let item = {
                 type: 'article',
                 id: ret.id.toString(),
@@ -255,9 +256,9 @@ async function processInlineByCategory(msg, bot) {
                     ret.title,
                     ret.tag,
                     ret.desc,
-                    ret.is_public ? ret.username : `https://t.me/${_e.me.username}?start=getdetail=${ret.id}`,
+                    ret.is_public ? ret.username : `https://t.me/${_e.me.username}?start=DEC-${b64url.encode(`getdetail=${ret.id}`)}`,
                     ret.extag['official']
-                    )
+                )
                 let item = {
                     type: 'article',
                     id: ret.id.toString(),
@@ -298,8 +299,10 @@ async function processInlineQuery(msg, type, bot) {
     try {
         const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
         const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
+        const is_halal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal')
+        const is_nothalal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal')
         const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
-        if (!is_blocked && !(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_in_jvbao) {
+        if (!is_blocked && !(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_in_jvbao && (!is_halal || is_nothalal)) {
             if (msg.query != '') {
                 if (/^##[0-9-]{5,}$/.test(msg.query)) {
                     _ga.tEvent(msg.from, 'inline', 'inline.queryById')
@@ -323,7 +326,8 @@ async function processInlineQuery(msg, type, bot) {
             const result = [{
                 type: 'article',
                 id: '403',
-                title: `您没有通过身份认证或已被封禁，无法使用此功能。`,
+                title: `
+                                您没有通过身份认证或已被封禁， 无法使用此功能。 `,
                 input_message_content: {
                     message_text: '请通过身份验证后再使用此功能，验证后请等待 10 秒钟生效。\n\nhttps://t.me/zh_groups_bot',
                     disable_web_page_preview: true

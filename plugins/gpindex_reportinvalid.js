@@ -50,6 +50,14 @@ async function processCallbackButton(msg, type, bot) {
                     show_alert: true
                 });
             }
+            const is_superadmin = !(['left', 'kicked'].indexOf((await bot.getChatMember(ADMIN_GROUP, msg.from.id)).status) > -1)
+            if (is_superadmin) {
+                await bot.answerCallbackQuery({
+                    callback_query_id: msg.id,
+                    text: ''
+                });
+                return await bot.sendMessage(ADMIN_GROUP, util.inspect(record))
+            }
             if (record.extag && record.extag['noreport']) {
                 _ga.tEvent(msg.from, 'reportinvalid', 'reportinvalid.notAllowed')
                 return await bot.answerCallbackQuery({

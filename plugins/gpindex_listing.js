@@ -2,9 +2,11 @@
 
 const util = require('util');
 const he = require('he').encode
+const b64url = require('base64-url')
 const tags = require('../config.gpindex.json')['gpindex_tags']
 const langres = require('../resources/gpindex_listing.json');
 const admin_id = require('../config.gpindex.json')['gpindex_admin'];
+const {stickerHalal} = require('../resources/gpindex_antihalal.json')
 
 var dynlink_cache = {}
 
@@ -50,7 +52,7 @@ async function generateDynLink(gid, bot) {
         return new_link
     } catch (e) {
         console.error(e)
-        var errorlog = gid + '\n```\n' + e.stack + '```\n';
+        var errorlog = gid + '\n```\n' + e.message + '```\n';
         await bot.sendMessage(admin_id, errorlog, {
             parse_mode: 'Markdown'
         });
@@ -60,34 +62,49 @@ async function generateDynLink(gid, bot) {
 
 async function getDynLink(gid, bot) {
     if (dynlink_cache[gid]) {
-        /*if (!dynlink_cache[gid].displayed) {
+        if (!dynlink_cache[gid].displayed) {
             // generated in 5 min window, not displayed yet, display now
             dynlink_cache[gid].displayed = true
             dynlink_cache[gid].time = Date.now()
             setTimeout(generateDynLink, 5 * 60 * 1000, gid, bot)
             return dynlink_cache[gid].link
-        } else */if ((Date.now() - dynlink_cache[gid].time) < 5 * 60 * 1000) {
+        } else if ((Date.now() - dynlink_cache[gid].time) < 5.5 * 60 * 1000) {
             // in valid cache time
             return dynlink_cache[gid].link
         } else {
             // is exception, 5 min window regeneration not working, manually regenerate.
             const link = await generateDynLink(gid, bot)
             if (!link) return false
-            // dynlink_cache[gid].displayed = true
+            dynlink_cache[gid].displayed = true
             setTimeout(generateDynLink, 5 * 60 * 1000, gid, bot)
             return link
         }
     } else {
         // not yet cached, create
-        const link = await generateDynLink(gid, bot)
-        /*dynlink_cache[gid] = {
-            link,
-            time: Date.now()
-        }*/
-        if (!link) return false
-        // dynlink_cache[gid].displayed = true
-        setTimeout(generateDynLink, 5 * 60 * 1000, gid, bot)
-        return link
+        try {
+            let { invite_link } = await bot.getChat(gid)
+            let link
+            if (invite_link) {
+                link = invite_link // reuse old link
+                dynlink_cache[gid] = {
+                    time: Date.now(),
+                    link: invite_link
+                }
+            } else {
+                link = await generateDynLink(gid, bot)
+            }
+            if (!link) return false
+            dynlink_cache[gid].displayed = true
+            setTimeout(generateDynLink, 5 * 60 * 1000, gid, bot)
+            return link
+        } catch (e) {
+            console.error(e)
+            var errorlog = gid + '\n```\n' + e.message + '```\n';
+            await bot.sendMessage(admin_id, errorlog, {
+                parse_mode: 'Markdown'
+            });
+            return false
+        }
     }
 }
 
@@ -107,7 +124,7 @@ function generateList(recs) {
         }
     })
     sorted_recs.forEach((child) => {
-        var link = `https://t.me/${_e.me.username}?start=getdetail=${child.id}`
+        var link = `https://t.me/${_e.me.username}?start=DEC-${b64url.encode(`getdetail=${child.id}`)}`
         var line, prefix;
 
         if (child.type == 'group' || child.type == 'supergroup')
@@ -152,6 +169,11 @@ async function getList(msg, result, bot) {
         try {
             const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
             const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
+            const is_halal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal')
+            const is_nothalal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal')
+            if (is_halal && !is_nothalal) {
+                return bot.sendSticker(msg.chat.id, stickerHalal[Math.floor(Math.random() * stickerHalal.length)])
+            }
             const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
             if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && !is_in_jvbao) {
                 _ga.tEvent(msg.from, 'listing', 'listing.listTags')
@@ -193,6 +215,11 @@ async function sendFirstPageListByCategory(msg, bot) {
     try {
         const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
         const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
+        const is_halal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal')
+        const is_nothalal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal')
+        if (is_halal && !is_nothalal) {
+            return bot.sendSticker(msg.chat.id, stickerHalal[Math.floor(Math.random() * stickerHalal.length)])
+        }
         const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
         if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && !is_in_jvbao) {
             _ga.tEvent(msg.from, 'listing', 'listing.listGroups', msg.text)
@@ -304,6 +331,11 @@ async function doSearch(msg, result, bot) {
         try {
             const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
             const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
+            const is_halal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal')
+            const is_nothalal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal')
+            if (is_halal && !is_nothalal) {
+                return bot.sendSticker(msg.chat.id, stickerHalal[Math.floor(Math.random() * stickerHalal.length)])
+            }
             const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
             if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && !is_in_jvbao) {
                 let recs = await comlib.searchByName(truncateSearch(result[1]))
@@ -313,7 +345,13 @@ async function doSearch(msg, result, bot) {
                         _ga.tEvent(msg.from, 'listing', 'listing.doSearchMatch.tooMany')
                         return await bot.sendMessage(msg.chat.id, langres['errorTooManyItems'], {
                             reply_to_message_id: msg.message_id,
-                            disable_web_page_preview: true
+                            disable_web_page_preview: true,
+                            reply_markup: {
+                                inline_keyboard: [[{
+                                    text: langres['buttonUseInline'],
+                                    switch_inline_query_current_chat: result[1]
+                                }]]
+                            }
                         })
                     }
                     _ga.tEvent(msg.from, 'listing', 'listing.doSearchMatch')
@@ -347,6 +385,11 @@ async function getDetail(msg, result, bot) {
     try {
         const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
         const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
+        const is_halal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal')
+        const is_nothalal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal')
+        if (is_halal && !is_nothalal) {
+            return bot.sendSticker(msg.chat.id, stickerHalal[Math.floor(Math.random() * stickerHalal.length)])
+        }
         const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
         if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && !is_in_jvbao) {
             const record = await comlib.getRecord(result[1])
@@ -399,7 +442,7 @@ async function getDetail(msg, result, bot) {
                         let dynlink = await getDynLink(record.id, bot)
                         if (dynlink) {
                             invite_link = dynlink
-                            message += '\n\n本群组受动态链接保护，链接最长 5 分钟失效，请尽快使用。'
+                            message += '\n\n本群组受动态链接保护，链接最长 5 分钟失效，请尽快使用。\n刚生成的动态链接可能无法使用，请等 30 秒再加入或是重新生成一个新的链接。'
                         } else {
                             invite_link = record.invite_link
                             message += '\n\n动态链接生成失败，当前为数据库缓存链接。我们会尽快调查此事件。'
@@ -446,7 +489,7 @@ async function getMyGroups(msg, result, bot) {
         outmsg[0] = ''
         var head = 0
         recs.forEach((child) => {
-            var link = `https://t.me/${_e.me.username}?start=panel=${child.id}`
+            var link = `https://t.me/${_e.me.username}?start=DEC-${b64url.encode(`panel=${child.id}`)}`
             var line, prefix;
             if (child.type == 'group' || child.type == 'supergroup')
                 prefix = '👥'
@@ -495,7 +538,7 @@ async function processCBButton(msg, type, bot) {
     if (['prev', 'next'].indexOf(operator) > -1)
         pagination_editListByCategory(msg, bot, operator, query)
     else if (operator == 'current_page') {
-        bot.answerCallbackQuery({
+        await bot.answerCallbackQuery({
             callback_query_id: msg.id,
             text: ''
         })
@@ -514,7 +557,7 @@ module.exports = {
         [/^\/start getdetail=([0-9-]{6,})/, getDetail],
         //[/^\/getdetail ([0-9-]{6,})/, getDetail],
         [/^\/mygroups$/, getMyGroups],
-        [/^[^/](.+)/, doSearch],
+        [/^([^/].*)$/, doSearch],
         ['callback_query', processCBButton]
     ]
 }

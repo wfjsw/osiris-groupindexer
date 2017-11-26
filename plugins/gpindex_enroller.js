@@ -1,8 +1,13 @@
 const util = require('util');
+const b64url = require('base64-url')
+const he = require('he')
 
 const admin_id = require('../config.gpindex.json')['gpindex_admin'];
+const langres = require('../resources/gpindex_enroller.json');
+const {
+    stickerHalal
+} = require('../resources/gpindex_antihalal.json')
 
-var langres = require('../resources/gpindex_enroller.json');
 var session = {};
 var _e, comlib, _ga
 var tags = require('../config.gpindex.json')['gpindex_tags'];
@@ -40,6 +45,11 @@ async function startEnrollment(msg, result, bot) {
             try {
                 const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
                 const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
+                const is_halal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal')
+                const is_nothalal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal')
+                if (is_halal && !is_nothalal) {
+                    return bot.sendSticker(msg.chat.id, stickerHalal[Math.floor(Math.random() * stickerHalal.length)])
+                }
                 const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
                 if (!(_e.plugins['gpindex_validateuser'] && !is_validated && !is_in_jvbao)) {
                     if (!is_blocked) {
@@ -92,6 +102,8 @@ async function groupChosen(msg, result, bot) {
     if (!session[uid] && !comlib.getLock(uid)) {
         // Check user creator status && check group enrollment status
         try {
+            let is_creator = (await bot.getChatMember(msg.chat.id, msg.from.id)).status == 'creator'
+            if (!is_creator) return
             const record = await comlib.getRecord(gid)
             if (record)
                 return await bot.sendMessage(gid, langres['errorAlreadyExist'], {
@@ -134,7 +146,7 @@ async function redirectToPrivateEnrollState(msg, bot) {
             text: langres['errorNotCreator']
         })
     } else {
-        let cburl = `https://t.me/${_e.me.username}?start=enroll=${msg.message.chat.id}`
+        let cburl = `https://t.me/${_e.me.username}?start=DEC-${b64url.encode(`enroll=${msg.message.chat.id}`)}`
         return bot.answerCallbackQuery({
             callback_query_id: msg.id,
             url: cburl
@@ -236,7 +248,7 @@ async function processEnrollWaitDescription(uid, ret, msg, bot) {
         let message = langres['promptSendDesc']
         let options = {}
         if (ret.description) {
-            message += `\n\n${langres['promptCurrentDesc']}\n${ret.description}`
+            message += `\n\n${langres['promptCurrentDesc']}\n<pre>${he.encode(ret.description)}</pre>`
             options.reply_markup = {
                 inline_keyboard: [
                     [{
@@ -245,6 +257,7 @@ async function processEnrollWaitDescription(uid, ret, msg, bot) {
                     }]
                 ]
             }
+            options.parse_mode = 'HTML'
         }
         await bot.sendMessage(uid, message, options)
         session[uid] = {
@@ -368,7 +381,7 @@ async function enrollerConfirmEnroll(msg, bot) {
         groupinfo.creator = msg.from.id;
         delete session[msg.from.id];
         comlib.unsetLock(msg.from.id);
-        var ret = comlib.doEnrollment(groupinfo);
+        var ret = await comlib.doEnrollment(groupinfo);
         if (ret == 'new_public_queue') {
             try {
                 await bot.answerCallbackQuery({
@@ -609,7 +622,7 @@ async function updatePrivateLink(msg, result, bot) {
                 var replymark = {
                     reply_to_message_id: msg.message_id
                 }
-                if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator'], replymark);
+                if (e == 'errorNotCreator') return //bot.sendMessage(msg.chat.id, langres['errorNotCreator'], replymark);
                 else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'], replymark);
                 else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges'], replymark);
                 else if (e == 'errorPrivToPub') bot.sendMessage(msg.chat.id, langres['errorPrivToPub'], replymark);
@@ -789,7 +802,7 @@ function updateTag(msg, result, bot) {
                         bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
                     }
                 }).catch((e) => {
-                    if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator']);
+                    if (e == 'errorNotCreator') return //bot.sendMessage(msg.chat.id, langres['errorNotCreator']);
                     else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
                     else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges']);
                     else errorProcess(msg, bot, e);
@@ -841,7 +854,7 @@ function updateDesc(msg, result, bot) {
                     bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
                 }
             }).catch((e) => {
-                if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator']);
+                if (e == 'errorNotCreator') return //bot.sendMessage(msg.chat.id, langres['errorNotCreator']);
                 else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed']);
                 else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges']);
                 else errorProcess(msg, bot, e);
@@ -851,8 +864,10 @@ function updateDesc(msg, result, bot) {
     }
 }
 
-function missingParameter(msg, result, bot) {
+async function missingParameter(msg, result, bot) {
     if (msg.chat.id < 0) {
+        let is_creator = (await bot.getChatMember(msg.chat.id, msg.from.id)).status == 'creator'
+        if (!is_creator) return
         bot.sendMessage(msg.chat.id, '请在指令后面跟上要更新的内容，例如链接、标签或简介', {
             reply_to_message_id: msg.message_id
         });

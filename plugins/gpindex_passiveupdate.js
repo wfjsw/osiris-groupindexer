@@ -132,7 +132,7 @@ async function doMigrate(msg, type, bot) {
         comlib.event.emit('new_private_commit', new_data)
         // _ga.tEvent(msg.chat, 'passiveUpdate', 'passiveUpdate.chatMigrate')
     } catch (e) {
-        console.error(e)
+        console.error(e.message)
         await bot.sendMessage(gpindex_admin, util.inspect(e.stack))
         _ga.tException(msg.chat.id, e, false)
     }
@@ -145,7 +145,7 @@ async function notifyMigrate(msg, type, bot) {
         if (!old_data) return
         await bot.sendMessage(gpindex_admin, `migrating: ${msg.migrate_from_chat_id} => ${msg.chat.id}`)
     } catch (e) {
-        console.error(e)
+        console.error(e.message)
         await bot.sendMessage(gpindex_admin, util.inspect(e.stack))
         _ga.tException(msg.chat.id, e, false)
     }
@@ -157,7 +157,17 @@ async function notifyLeave(msg, type, bot) {
             return await bot.sendMessage(gpindex_admin, `Leaving ${msg.chat.id}\n${util.inspect(msg.chat)}`)
         }
     } catch (e) {
-        console.error(e)
+        console.error(e.message)
+    }
+}
+
+async function notifyJoin(msg, type, bot) {
+    try {
+        if (msg.new_chat_members[0].id == _e.me.id) {
+            return await bot.sendMessage(gpindex_admin, `Joining ${msg.chat.id}\n${util.inspect(msg.chat)}`)
+        }
+    } catch (e) {
+        console.error(e.message)
     }
 }
 
@@ -177,6 +187,7 @@ module.exports = {
         ['migrate_from_chat_id', doMigrate],
         ['migrate_to_chat_id', notifyMigrate],
         ['left_chat_member', notifyLeave],
+        ['new_chat_members', notifyJoin],
         ['channel_post', passiveUpdateChannel],
         ['new_chat_photo', updateChatPhoto],
         ['delete_chat_photo', updateChatPhoto],

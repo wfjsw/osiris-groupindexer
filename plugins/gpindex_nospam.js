@@ -32,15 +32,15 @@ async function processSpamCheck(msg, bot) {
                     } catch (e) {}
                     await bot.kickChatMember(cid, uid, spam_time)
                     let send = false
-                    if (last_notify[msg.from.id.toString()]) {
-                        if ((Math.floor(Date.now() / 1000) - last_notify[msg.from.id.toString()]) > send_notification_threshold) {
+                    if (last_notify[msg.chat.id.toString() + ':' + msg.from.id.toString()]) {
+                        if ((Math.floor(Date.now() / 1000) - last_notify[msg.chat.id.toString() + ':' + msg.from.id.toString()]) > send_notification_threshold) {
                             send = true
                         }
                     } else {
                         send = true
                     }
                     if (send) {
-                        last_notify[msg.from.id.toString()] = Math.floor(Date.now() / 1000)
+                        last_notify[msg.chat.id.toString() + ':' + msg.from.id.toString()] = Math.floor(Date.now() / 1000)
                         await bot.sendMessage(cid, `#SPAM #ENFORCED 已检测到并尝试移除已知刷屏/广告用户，有异议请提交工单复核。\nTGCN-工单系统：@tgcntkbot\n关于我们的封禁策略：https://wfjsw.gitbooks.io/tgcn-groupindex-reference/content/note-about-spam-tag.html\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
                             parse_mode: 'HTML'
                         })
@@ -48,15 +48,15 @@ async function processSpamCheck(msg, bot) {
                     }
                 } catch (e) {
                     let send = false
-                    if (last_notify[msg.from.id.toString()]) {
-                        if ((Math.floor(Date.now() / 1000) - last_notify[msg.from.id.toString()]) > send_notification_threshold) {
+                    if (last_notify[msg.chat.id.toString() + ':' + msg.from.id.toString()]) {
+                        if ((Math.floor(Date.now() / 1000) - last_notify[msg.chat.id.toString() + ':' + msg.from.id.toString()]) > send_notification_threshold) {
                             send = true
                         }
                     } else {
                         send = true
                     }
                     if (send) {
-                        last_notify[msg.from.id.toString()] = Math.floor(Date.now() / 1000)
+                        last_notify[msg.chat.id.toString() + ':' + msg.from.id.toString()] = Math.floor(Date.now() / 1000)
                         await bot.sendMessage(cid, `#SPAM 已检测到已知刷屏/广告用户，有异议请提交工单复核。如需自动移除，请将机器人设置为管理员。\nTGCN-工单系统：@tgcntkbot\n关于我们的封禁策略：https://wfjsw.gitbooks.io/tgcn-groupindex-reference/content/note-about-spam-tag.html\n\n${usermsg}\n\n封禁解除时间：${bannedtime}`, {
                             parse_mode: 'HTML'
                         })

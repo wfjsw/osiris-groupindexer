@@ -66,6 +66,7 @@ async function doPublish(msg, result, bot) {
         try {
             const ret = await comlib.getRecord(extractId(result[1], msg.reply_to_message))
             if (ret) {
+                ret.force = true
                 if (ret.is_public) comlib.event.emit('new_public_commit', ret)
                 else comlib.event.emit('new_private_commit', ret)
                 return bot.sendMessage(msg.chat.id, 'Done.')
