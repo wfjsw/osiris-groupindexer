@@ -121,10 +121,14 @@ async function doMigrate(msg, type, bot) {
         const old_data = await comlib.getRecord(msg.migrate_from_chat_id)
         if (!old_data) return
         let new_data = Object.assign({}, old_data, {
-            id: msg.chat.id
+            id: msg.chat.id,
+            migrate_from_chat_id: msg.migrate_from_chat_id
         })
+        delete new_data.extag
         const rm_stat = await comlib.doRemoval(msg.migrate_from_chat_id)
         const ins_stat = await comlib.silentInsert(new_data)
+        const old_extag = old_data.extag
+        await comlib.GroupExTag.setGroupExTag(msg.chat.id, Object.keys(old_extag), Object.values(old_extag))
         await bot.sendMessage(gpindex_admin, `migrated with me: ${msg.migrate_from_chat_id} => ${msg.chat.id}\n\n${util.inspect(rm_stat)}\n${util.inspect(ins_stat)}`)
         await bot.sendMessage(msg.chat.id, '已成功为您转移索引数据到升级后的超级群。创建公开链接之后请点击 `/update` 更新。', {
             parse_mode: 'Markdown'

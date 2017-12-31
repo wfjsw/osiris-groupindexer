@@ -27,10 +27,6 @@ function errorProcess(msg, bot, err) {
     });
 }
 
-function truncateSearch(term) {
-    return term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-}
-
 /**
  * @param {Boolean} is_public 
  * @param {Number} id 
@@ -140,7 +136,7 @@ async function processInlineByName(msg, bot) {
     try {
         const query = msg.query
         const offset = parseInt(msg.offset) || 0
-        let result = await comlib.searchByName(truncateSearch(query))
+        let result = await comlib.searchByName(query)
         result = result.filter(record => tags.indexOf(record.tag) > -1)
         const total_length = result.length
         /* if (total_length > 100) {
@@ -297,10 +293,7 @@ async function processInlineByCategory(msg, bot) {
 
 async function processInlineQuery(msg, type, bot) {
     try {
-        const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-        const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
-        const is_halal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal')
-        const is_nothalal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal')
+        const [is_validated, is_blocked, is_halal, is_nothalal] = await comlib.UserFlag.queryUserFlag(msg.from.id, ['validated', 'block', 'halal', 'nothalal'])
         const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
         if (!is_blocked && !(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_in_jvbao && (!is_halal || is_nothalal)) {
             if (msg.query != '') {

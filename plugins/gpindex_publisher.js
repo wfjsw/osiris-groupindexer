@@ -1,6 +1,6 @@
 'use strict'
 
-const publish_rate_limit = 3 * 24 * 3600
+const publish_rate_limit = 30 * 24 * 3600
 
 const util = require('util')
 const b64url = require('base64-url')
@@ -12,18 +12,30 @@ const admin_id = require('../config.gpindex.json')['gpindex_admin']
 let last_updated = {}
 let last_published_id = {}
 
-var _e
+var _e, comlib
 
 function initevents() {
-    var context = _e.libs['gpindex_common'].event,
+    var context = comlib.event,
         bot = _e.bot
     context.on('new_public_commit', async(groupinfo) => {
         // New Public Group
         let type = 'send'
-        if (!groupinfo.force) {
-            let is_silent = !!(await _e.libs['gpindex_common'].GroupExTag.queryGroupExTag(groupinfo.id, 'silent'))
-            if (is_silent) return
-            if (last_updated[groupinfo.id] && ((Math.floor(Date.now() / 1000) - last_updated[groupinfo.id]) < publish_rate_limit)) type = 'edit'
+        let [last_published_time, last_published_id] = await comlib.GroupExTag.queryGroupExTag(groupinfo.id, ['last_published_time', 'last_published_id'])
+        if (groupinfo.force == 'send') {
+            type = 'send'
+        } else if (groupinfo.force == 'edit') {
+            type = 'edit'
+        } else {
+            let is_silent = !!(await comlib.GroupExTag.queryGroupExTag(groupinfo.id, 'silent'))
+            // if (is_silent) return
+            if (last_published_id) {
+                if (is_silent) return
+                if (last_published_time && ((Math.floor(Date.now() / 1000) - last_published_time) < publish_rate_limit)) {
+                    type = 'edit'
+                } else {
+                    type = 'send'
+                }
+            }
         }
         var text
         var link = 'https://t.me/' + _e.me.username + '?start=DEC-' + b64url.encode('getdetail=' + groupinfo.id)
@@ -47,10 +59,9 @@ function initevents() {
         try {
             if (type == 'edit') {
                 try {
-                    return await bot.editMessageText({
+                    return await bot.editMessageText(text, {
                         chat_id: channel_id,
-                        message_id: last_published_id[groupinfo.id],
-                        text,
+                        message_id: last_published_id,
                         disable_web_page_preview: true,
                         reply_markup
                     })
@@ -59,8 +70,7 @@ function initevents() {
                         disable_web_page_preview: true,
                         reply_markup
                     })
-                    last_updated[groupinfo.id] = Math.floor(Date.now() / 1000)
-                    last_published_id[groupinfo.id] = result.message_id
+                    await comlib.GroupExTag.setGroupExTag(groupinfo.id, ['last_published_time', 'last_published_id'], [result.date, result.message_id])
                     return
                 }
             } else if (type == 'send') {
@@ -68,8 +78,7 @@ function initevents() {
                     disable_web_page_preview: true,
                     reply_markup
                 })
-                last_updated[groupinfo.id] = Math.floor(Date.now() / 1000)
-                last_published_id[groupinfo.id] = result.message_id
+                await comlib.GroupExTag.setGroupExTag(groupinfo.id, ['last_published_time', 'last_published_id'], [result.date, result.message_id])
                 return
             }
         } catch (e) {
@@ -79,13 +88,25 @@ function initevents() {
     })
     context.on('update_public_data', async(groupinfo) => {
         let type = 'send'
-        if (!groupinfo.force) {
-            let is_silent = !!(await _e.libs['gpindex_common'].GroupExTag.queryGroupExTag(groupinfo.id, 'silent'))
-            if (is_silent) return
-            if (last_updated[groupinfo.id] && ((Math.floor(Date.now() / 1000) - last_updated[groupinfo.id]) < publish_rate_limit)) type = 'edit'
+        let [last_published_time, last_published_id] = await comlib.GroupExTag.queryGroupExTag(groupinfo.id, ['last_published_time', 'last_published_id'])
+        if (groupinfo.force == 'send') {
+            type = 'send'
+        } else if (groupinfo.force == 'edit') {
+            type = 'edit'
+        } else {
+            let is_silent = !!(await comlib.GroupExTag.queryGroupExTag(groupinfo.id, 'silent'))
+            // if (is_silent) return
+            if (last_published_id) {
+                if (is_silent) return
+                if (last_published_time && ((Math.floor(Date.now() / 1000) - last_published_time) < publish_rate_limit)) {
+                    type = 'edit'
+                } else {
+                    type = 'send'
+                }
+            }
         }
         try {
-            let record = await _e.libs['gpindex_common'].getRecord(groupinfo.id)
+            let record = await comlib.getRecord(groupinfo.id)
             let text
             let link = 'https://t.me/' + _e.me.username + '?start=DEC-' + b64url.encode('getdetail=' + record.id)
             if (groupinfo.type == 'channel') text = util.format(langres['updatePublicChan'], record.title, record.username, record.tag, record.desc, record.id)
@@ -107,10 +128,9 @@ function initevents() {
             }
             if (type == 'edit') {
                 try {
-                    return await bot.editMessageText({
+                    return await bot.editMessageText(text, {
                         chat_id: channel_id,
                         message_id: last_published_id[groupinfo.id],
-                        text,
                         disable_web_page_preview: true,
                         reply_markup
                     })
@@ -119,8 +139,7 @@ function initevents() {
                         disable_web_page_preview: true,
                         reply_markup
                     })
-                    last_updated[groupinfo.id] = Math.floor(Date.now() / 1000)
-                    last_published_id[groupinfo.id] = result.message_id
+                    await comlib.GroupExTag.setGroupExTag(groupinfo.id, ['last_published_time', 'last_published_id'], [result.date, result.message_id])
                     return
                 }
             } else if (type == 'send') {
@@ -128,8 +147,7 @@ function initevents() {
                     disable_web_page_preview: true,
                     reply_markup
                 })
-                last_published_id[groupinfo.id] = result.message_id
-                last_updated[groupinfo.id] = Math.floor(Date.now() / 1000)
+                await comlib.GroupExTag.setGroupExTag(groupinfo.id, ['last_published_time', 'last_published_id'], [result.date, result.message_id])
             }
         } catch (e) {
             bot.sendMessage(admin_id, e.message)
@@ -138,10 +156,22 @@ function initevents() {
     })
     context.on('new_private_commit', async(groupinfo) => {
         let type = 'send'
-        if (!groupinfo.force) {
-            let is_silent = !!(await _e.libs['gpindex_common'].GroupExTag.queryGroupExTag(groupinfo.id, 'silent'))
-            if (is_silent) return
-            if (last_updated[groupinfo.id] && ((Math.floor(Date.now() / 1000) - last_updated[groupinfo.id]) < publish_rate_limit)) type = 'edit'
+        let [last_published_time, last_published_id] = await comlib.GroupExTag.queryGroupExTag(groupinfo.id, ['last_published_time', 'last_published_id'])
+        if (groupinfo.force == 'send') {
+            type = 'send'
+        } else if (groupinfo.force == 'edit') {
+            type = 'edit'
+        } else {
+            let is_silent = !!(await comlib.GroupExTag.queryGroupExTag(groupinfo.id, 'silent'))
+            // if (is_silent) return
+            if (last_published_id) {
+                if (is_silent) return
+                if (last_published_time && ((Math.floor(Date.now() / 1000) - last_published_time) < publish_rate_limit)) {
+                    type = 'edit'
+                } else {
+                    type = 'send'
+                }
+            }
         }
         // New Public Group
         let text
@@ -166,10 +196,9 @@ function initevents() {
         try {
             if (type == 'edit') {
                 try {
-                    return await bot.editMessageText({
+                    return await bot.editMessageText(text, {
                         chat_id: channel_id,
                         message_id: last_published_id[groupinfo.id],
-                        text,
                         disable_web_page_preview: true,
                         reply_markup
                     })
@@ -178,8 +207,7 @@ function initevents() {
                         disable_web_page_preview: true,
                         reply_markup
                     })
-                    last_updated[groupinfo.id] = Math.floor(Date.now() / 1000)
-                    last_published_id[groupinfo.id] = result.message_id
+                    await comlib.GroupExTag.setGroupExTag(groupinfo.id, ['last_published_time', 'last_published_id'], [result.date, result.message_id])
                     return
                 }
             } else if (type == 'send') {
@@ -187,8 +215,7 @@ function initevents() {
                     disable_web_page_preview: true,
                     reply_markup
                 })
-                last_updated[groupinfo.id] = Math.floor(Date.now() / 1000)
-                last_published_id[groupinfo.id] = result.message_id
+                await comlib.GroupExTag.setGroupExTag(groupinfo.id, ['last_published_time', 'last_published_id'], [result.date, result.message_id])
             }
         } catch (e) {
             bot.sendMessage(admin_id, e.message)
@@ -197,14 +224,26 @@ function initevents() {
     })
     context.on('update_private_data', async(groupinfo) => {
         let type = 'send'
-        if (!groupinfo.force) {
-            let is_silent = !!(await _e.libs['gpindex_common'].GroupExTag.queryGroupExTag(groupinfo.id, 'silent'))
-            if (is_silent) return
-            if (last_updated[groupinfo.id] && ((Math.floor(Date.now() / 1000) - last_updated[groupinfo.id]) < publish_rate_limit)) type = 'edit'
+        let [last_published_time, last_published_id] = await comlib.GroupExTag.queryGroupExTag(groupinfo.id, ['last_published_time', 'last_published_id'])
+        if (groupinfo.force == 'send') {
+            type = 'send'
+        } else if (groupinfo.force == 'edit') {
+            type = 'edit'
+        } else {
+            let is_silent = !!(await comlib.GroupExTag.queryGroupExTag(groupinfo.id, 'silent'))
+            // if (is_silent) return
+            if (last_published_id) {
+                if (is_silent) return
+                if (last_published_time && ((Math.floor(Date.now() / 1000) - last_published_time) < publish_rate_limit)) {
+                    type = 'edit'
+                } else {
+                    type = 'send'
+                }
+            }
         }
         // Private Group Updated
         try {
-            let record = await _e.libs['gpindex_common'].getRecord(groupinfo.id)
+            let record = await comlib.getRecord(groupinfo.id)
             last_updated[groupinfo.id] = Math.floor(Date.now() / 1000)
             let text
             var link = 'https://t.me/' + _e.me.username + '?start=DEC-' + b64url.encode('getdetail=' + groupinfo.id)
@@ -227,10 +266,9 @@ function initevents() {
             }
             if (type == 'edit') {
                 try {
-                    return await bot.editMessageText({
+                    return await bot.editMessageText(text, {
                         chat_id: channel_id,
                         message_id: last_published_id[groupinfo.id],
-                        text,
                         disable_web_page_preview: true,
                         reply_markup
                     })
@@ -239,8 +277,7 @@ function initevents() {
                         disable_web_page_preview: true,
                         reply_markup
                     })
-                    last_updated[groupinfo.id] = Math.floor(Date.now() / 1000)
-                    last_published_id[groupinfo.id] = result.message_id
+                    await comlib.GroupExTag.setGroupExTag(groupinfo.id, ['last_published_time', 'last_published_id'], [result.date, result.message_id])
                     return
                 }
             } else if (type == 'send') {
@@ -248,8 +285,7 @@ function initevents() {
                     disable_web_page_preview: true,
                     reply_markup
                 })
-                last_updated[groupinfo.id] = Math.floor(Date.now() / 1000)
-                last_published_id[groupinfo.id] = result.message_id
+                await comlib.GroupExTag.setGroupExTag(groupinfo.id, ['last_published_time', 'last_published_id'], [result.date, result.message_id])
             }
         } catch (e) {
             bot.sendMessage(admin_id, e.message)
@@ -261,6 +297,7 @@ function initevents() {
 module.exports = {
     init: (e) => {
         _e = e
+        comlib = _e.libs['gpindex_common']
         initevents()
     }
 }

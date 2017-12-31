@@ -21,10 +21,6 @@ function purgeState(msg, result, bot) {
     });
 }
 
-function truncateSearch(term) {
-    return term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-}
-
 function errorProcess(msg, bot, err) {
     if (err == 'notValidated') return
     var errorlog = '```\n' + err.stack + '```\n';
@@ -167,10 +163,7 @@ function generateList(recs) {
 async function getList(msg, result, bot) {
     if (msg.chat.id > 0) {
         try {
-            const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
-            const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-            const is_halal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal')
-            const is_nothalal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal')
+            const [is_validated, is_blocked, is_halal, is_nothalal] = await comlib.UserFlag.queryUserFlag(msg.from.id, ['validated', 'block', 'halal', 'nothalal'])
             if (is_halal && !is_nothalal) {
                 return bot.sendSticker(msg.chat.id, stickerHalal[Math.floor(Math.random() * stickerHalal.length)])
             }
@@ -213,10 +206,7 @@ async function getList(msg, result, bot) {
 
 async function sendFirstPageListByCategory(msg, bot) {
     try {
-        const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
-        const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-        const is_halal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal')
-        const is_nothalal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal')
+        const [is_validated, is_blocked, is_halal, is_nothalal] = await comlib.UserFlag.queryUserFlag(msg.from.id, ['validated', 'block', 'halal', 'nothalal'])
         if (is_halal && !is_nothalal) {
             return bot.sendSticker(msg.chat.id, stickerHalal[Math.floor(Math.random() * stickerHalal.length)])
         }
@@ -262,10 +252,9 @@ async function processText(msg, type, bot) {
 
 async function pagination_editListByCategory(msg, bot, operator, query) {
     try {
-        const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
-        const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
+        const [is_validated, is_blocked, is_halal, is_nothalal] = await comlib.UserFlag.queryUserFlag(msg.from.id, ['validated', 'block', 'halal', 'nothalal'])
         const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
-        if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && !is_in_jvbao) {
+        if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && (!is_halal || is_nothalal) && !is_in_jvbao) {
             const [category, current_page] = query.split('-')
             const recs = await comlib.getRecByTag(category)
             let outmsg = generateList(recs)
@@ -327,18 +316,16 @@ async function pagination_editListByCategory(msg, bot, operator, query) {
 
 async function doSearch(msg, result, bot) {
     if (tags.indexOf(msg.text) > -1) return
+    if (msg.forward_from_chat) return
     if (!comlib.getLock(msg.from.id) && msg.chat.id > 0) {
         try {
-            const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
-            const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-            const is_halal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal')
-            const is_nothalal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal')
+                const [is_validated, is_blocked, is_halal, is_nothalal] = await comlib.UserFlag.queryUserFlag(msg.from.id, ['validated', 'block', 'halal', 'nothalal'])
             if (is_halal && !is_nothalal) {
                 return bot.sendSticker(msg.chat.id, stickerHalal[Math.floor(Math.random() * stickerHalal.length)])
             }
             const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
             if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && !is_in_jvbao) {
-                let recs = await comlib.searchByName(truncateSearch(result[1]))
+                let recs = await comlib.searchByName(result[1])
                 recs = recs.filter(record => tags.indexOf(record.tag) > -1)
                 if (recs.length > 0) {
                     if (recs.length > 40) {
@@ -383,10 +370,7 @@ async function doSearch(msg, result, bot) {
 async function getDetail(msg, result, bot) {
     if (msg.chat.id < 0) return
     try {
-        const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
-        const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-        const is_halal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal')
-        const is_nothalal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal')
+        const [is_validated, is_blocked, is_halal, is_nothalal] = await comlib.UserFlag.queryUserFlag(msg.from.id, ['validated', 'block', 'halal', 'nothalal'])
         if (is_halal && !is_nothalal) {
             return bot.sendSticker(msg.chat.id, stickerHalal[Math.floor(Math.random() * stickerHalal.length)])
         }

@@ -43,10 +43,7 @@ async function startEnrollment(msg, result, bot) {
     if (!session[msg.from.id]) {
         if (msg.chat.id > 0) {
             try {
-                const is_validated = await comlib.UserFlag.queryUserFlag(msg.from.id, 'validated')
-                const is_blocked = await comlib.UserFlag.queryUserFlag(msg.from.id, 'block')
-                const is_halal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal')
-                const is_nothalal = await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal')
+                const [is_validated, is_blocked, is_halal, is_nothalal] = await comlib.UserFlag.queryUserFlag(msg.from.id, ['validated', 'block', 'halal', 'nothalal'])
                 if (is_halal && !is_nothalal) {
                     return bot.sendSticker(msg.chat.id, stickerHalal[Math.floor(Math.random() * stickerHalal.length)])
                 }
@@ -273,6 +270,14 @@ async function processEnrollUseCurrentDesc(msg, bot) {
     if (session[msg.from.id]) {
         var newinfo = session[msg.from.id].argu;
         newinfo['desc'] = newinfo['description']
+        try {
+            await bot.editMessageReplyMarkup({}, {
+                chat_id: msg.message.chat.id,
+                message_id: msg.message.message_id
+            })
+        } catch (e) {
+            console.log('enroller_del_btn: ' + e.message)
+        }
         if (newinfo.username) processEnrollPublic(msg.from.id, newinfo, msg, bot); // is public group
         else processEnrollPrivateWaitLink(msg.from.id, newinfo, msg, bot); // is private group
     }
@@ -379,6 +384,7 @@ async function enrollerConfirmEnroll(msg, bot) {
     if (session[msg.from.id] && session[msg.from.id].status == "confirmmsg") {
         var groupinfo = session[msg.from.id].argu
         groupinfo.creator = msg.from.id;
+        groupinfo.created_time = Date.now()
         delete session[msg.from.id];
         comlib.unsetLock(msg.from.id);
         var ret = await comlib.doEnrollment(groupinfo);

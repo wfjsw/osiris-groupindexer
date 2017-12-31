@@ -51,7 +51,16 @@ async function markInvaild(msg, result, bot) {
             const ret = await comlib.getRecord(extractId(result[1], msg.reply_to_message))
             if (ret) {
                 await bot.sendMessage(msg.chat.id, 'Done.')
-                return await bot.sendMessage(ret.creator, '您的群组 ' + ret.title + ' 链接已过期，请及时更新。')
+                return await bot.sendMessage(ret.creator, '您的群组 ' + ret.title + ' 链接已过期，请及时更新。', {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{
+                                text: '从索引中删除',
+                                callback_data: 'admin:remove4mark&' + ret.id
+                            }]
+                        ]
+                    }
+                })
             } else {
                 return bot.sendMessage(msg.chat.id, 'Not Found')
             }
@@ -66,7 +75,25 @@ async function doPublish(msg, result, bot) {
         try {
             const ret = await comlib.getRecord(extractId(result[1], msg.reply_to_message))
             if (ret) {
-                ret.force = true
+                ret.force = 'send'
+                if (ret.is_public) comlib.event.emit('new_public_commit', ret)
+                else comlib.event.emit('new_private_commit', ret)
+                return bot.sendMessage(msg.chat.id, 'Done.')
+            } else {
+                return bot.sendMessage(msg.chat.id, 'Not Found')
+            }
+        } catch (e) {
+            return bot.sendMessage(msg.chat.id, 'Failed\n\n' + e.message)
+        }
+    }
+}
+
+async function doRefreshPublished(msg, result, bot) {
+    if (msg.chat.id == admin_id) {
+        try {
+            const ret = await comlib.getRecord(extractId(result[1], msg.reply_to_message))
+            if (ret) {
+                ret.force = 'edit'
                 if (ret.is_public) comlib.event.emit('new_public_commit', ret)
                 else comlib.event.emit('new_private_commit', ret)
                 return bot.sendMessage(msg.chat.id, 'Done.')
@@ -142,7 +169,7 @@ async function doImportAnonPublicGroup(msg, result, bot) {
                 delete ginfo['all_members_are_administrators']
                 delete ginfo['invite_link']
                 const db_ret = await comlib.silentInsert(ginfo);
-                    bot.sendMessage(msg.chat.id, `${util.inspect(db_ret)}\n\n${util.inspect(ginfo)}`)
+                bot.sendMessage(msg.chat.id, `${util.inspect(db_ret)}\n\n${util.inspect(ginfo)}`)
             } catch (e) {
                 return bot.sendMessage(msg.chat.id, 'Failed\n\n' + e.message);
             }
@@ -201,11 +228,11 @@ async function getChatAdmin(msg, result, bot) {
             const ret = await bot.getChatAdministrators(parseInt(extractId(result[1], msg.reply_to_message)))
             let message = `Group ${parseInt(extractId(result[1], msg.reply_to_message))}\n\n`
             ret.forEach(admin => {
-                if (admin.status == 'creator') 
+                if (admin.status == 'creator')
                     message += 'C'
                 else if (admin.status == 'administrator')
                     message += 'A'
-                else 
+                else
                     message += 'U'
 
                 message += ` ${admin.user.id} ${admin.user.first_name} ${admin.user.last_name || ''} `
@@ -319,11 +346,86 @@ async function getUserMention(msg, result, bot) {
     if (msg.chat.id != admin_id) return
     const uid = parseInt(result[1])
     const md = `[${uid}](tg://user?id=${uid})`
-    return bot.sendMessage(msg.chat.id, md, {
-        parse_mode: 'Markdown'
-    })
+    try {
+        return await bot.sendMessage(msg.chat.id, md, {
+            parse_mode: 'Markdown'
+        })
+    } catch (e) {
+        return await bot.sendMessage(msg.chat.id, e.message)
+    }
 }
 
+async function leaveGroup(msg, result, bot) {
+    if (msg.chat.id != admin_id) return
+    const gid = parseInt(extractId(result[1], msg.reply_to_message))
+    try {
+        let ret = await bot.leaveChat(gid)
+        return await bot.sendMessage(msg.chat.id, ret, {
+            parse_mode: 'Markdown'
+        })
+    } catch (e) {
+        return await bot.sendMessage(msg.chat.id, e.message, {
+            parse_mode: 'Markdown'
+        })
+    }
+}
+
+async function banUser(msg, result, bot) {
+    if (msg.chat.id != admin_id) return
+    const gid = parseInt(extractId(result[1], msg.reply_to_message))
+    const uid = parseInt(result[2])
+    try {
+        let ret = await bot.kickChatMember(gid, uid)
+        return await bot.sendMessage(msg.chat.id, ret, {
+            parse_mode: 'Markdown'
+        })
+    } catch (e) {
+        return await bot.sendMessage(msg.chat.id, e.message, {
+            parse_mode: 'Markdown'
+        })
+    }
+}
+
+async function unbanUser(msg, result, bot) {
+    if (msg.chat.id != admin_id) return
+    const gid = parseInt(extractId(result[1], msg.reply_to_message))
+    const uid = parseInt(result[2])
+    try {
+        let ret = await bot.unbanChatMember(gid, uid)
+        return await bot.sendMessage(msg.chat.id, ret, {
+            parse_mode: 'Markdown'
+        })
+    } catch (e) {
+        return await bot.sendMessage(msg.chat.id, e.message, {
+            parse_mode: 'Markdown'
+        })
+    }
+}
+
+async function deleteForInvalidMark(gid, msg, bot) {
+    try {
+        const ret = await comlib.doRemoval(extractId(gid, msg.reply_to_message))
+        await bot.editMessageText(msg.message.text + '\n\n成功从索引中删除。', {
+            chat_id: msg.message.chat.id,
+            message_id: msg.message.message_id
+        })
+        await bot.answerCallbackQuery({
+            callback_query_id: msg.id,
+            text: '操作成功。'
+        })
+        return await bot.sendMessage(admin_id, `Remove from invalid mark: ${gid}\n\n${util.inspect(ret)}`)
+    } catch (e) {
+        return bot.sendMessage(msg.chat.id, e.message)
+    }
+}
+
+async function processCallbackButton(msg, type, bot) {
+    let datapart = msg.data.split('&')
+    switch (datapart[0]) {
+        case 'admin:remove4mark':
+            return deleteForInvalidMark(parseInt(datapart[1]), msg, bot)
+    }
+}
 
 module.exports = {
     init: (e) => {
@@ -332,6 +434,7 @@ module.exports = {
     },
     run: [
         [/^\/publish ([0-9-]{6,}|reply)$/, doPublish],
+        [/^\/pubrefresh ([0-9-]{6,}|reply)$/, doRefreshPublished],
         [/^\/removeitem ([0-9-]{6,}|reply)$/, removeItem],
         [/^\/markinvalid ([0-9-]{6,}|reply)$/, markInvaild],
         [/^\/import_pub (@[_A-Za-z0-9]{4,}) ([^\n\s]+) ((?:.|\n)+)/m, doImportPublicGroup],
@@ -348,6 +451,10 @@ module.exports = {
         [/^\/getextag ([0-9-]{6,}|reply) ([^\s]+)$/, getGroupExTag],
         [/^\/setextag ([0-9-]{6,}|reply) ([^\s]+) ([^\s]+)$/, setGroupExTag],
         [/^\/sendmsg ([0-9-]{6,}|@[a-zA-Z0-9_]{5,}|reply) ((?:.|\n)+)/m, sendMsg],
-        [/^\/getmention ([0-9]{6,})$/, getUserMention]
+        [/^\/getmention ([0-9]{6,})$/, getUserMention],
+        ['callback_query', processCallbackButton],
+        [/^\/leave ([0-9-]{6,}|reply)$/, leaveGroup],
+        [/^\/ban ([0-9-]{6,}|reply) ([0-9]{6,})$/, banUser],
+        [/^\/unban ([0-9-]{6,}|reply) ([0-9]{6,})$/, unbanUser]
     ]
 }

@@ -1,4 +1,4 @@
-const langCodeBanned = ['fa-IR']
+const langCodeBanned = ['fa-IR', 'fa', 'ar']
 const halal_display_name = /sharma|pollsciemo|amarhs|moham|ali.*reza|amir|ahmed/i
 const max_halal_char_threshold = 5
 const max_halal_pct_threshold = 0.3
@@ -6,6 +6,7 @@ const send_capture_threshold = 120
 const send_notification_threshold = 120
 const kick_wait_threshold = 30
 
+const antihalal_manager = -1001159383809
 const chan_capture = -1001135234856
 var _e, comlib, _ga
 let last_sent_group = {}
@@ -14,7 +15,6 @@ let last_kicked = {}
 let sticker_pack_name_cache = {}
 let tempwhitelist = {}
 const util = require('util')
-const ADMIN_GROUP = require('../config.gpindex.json')['gpindex_admin']
 
 function genHalalKB(id) {
     return {
@@ -103,7 +103,7 @@ async function privateLanguageDetection(msg, bot) {
         description
     } = await bot.getChat(msg.from.id)
     let display_name = msg.from.first_name + (msg.from.last_name || '')
-    let is_halal = testHalal(display_name) || testHalal(description || '') || !!display_name.match(halal_display_name + (msg.from.username || '')) || langCodeBanned.indexOf(msg.from.language_code) > -1
+    let is_halal = testHalal(display_name) || testHalal(description || '') || !!(display_name + (msg.from.username || '')).match(halal_display_name) || langCodeBanned.indexOf(msg.from.language_code) > -1
     if (is_halal) {
         // _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.languageBanned')
         let send = false
@@ -133,7 +133,7 @@ async function examineDisplayName(msg, new_member, bot) {
     let inviter_display_name = msg.from.first_name + (msg.from.last_name || '')
     let display_name = new_member.first_name + (new_member.last_name || '')
     const is_kick_halal_name = !!(await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:antihalalenhanced'))
-    let is_halal = testHalal(inviter_display_name) || testHalal(display_name) || !!display_name.match(halal_display_name + (new_member.username || '')) || langCodeBanned.indexOf(new_member.language_code) > -1 || langCodeBanned.indexOf(msg.from.language_code) > -1
+    let is_halal = testHalal(inviter_display_name) || testHalal(display_name) || !!(display_name + (new_member.username || '')).match(halal_display_name) || langCodeBanned.indexOf(new_member.language_code) > -1 || langCodeBanned.indexOf(msg.from.language_code) > -1
     if (is_halal) {
         // _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.display-name')
         await bot.sendMessage(chan_capture, `清真加群\n\n${util.inspect(msg.chat)}\n搞事的人\n${util.inspect(msg.from)}\n清真\n${util.inspect(new_member)}`, {
@@ -288,7 +288,7 @@ async function processCallbackQuery(msg, type, bot) {
     if (operator == 'antihalal') {
         let [q, uid] = query.split('&')
         uid = parseInt(uid)
-        const is_superadmin = !(['left', 'kicked'].indexOf((await bot.getChatMember(ADMIN_GROUP, msg.from.id)).status) > -1)
+        const is_superadmin = !(['left', 'kicked'].indexOf((await bot.getChatMember(antihalal_manager, msg.from.id)).status) > -1)
         switch (q) {
             case 'h':
                 if (is_superadmin) {
@@ -310,7 +310,6 @@ async function processCallbackQuery(msg, type, bot) {
                 }
             case 'nh':
                 if (is_superadmin) {
-                    await comlib.UserFlag.setUserFlag(uid, 'halal', 0)
                     await comlib.UserFlag.setUserFlag(uid, 'nothalal', 1)
                     await bot.editMessageText(`${msg.message.text}\n\n✅好的，这不清真。老阿訇：${msg.from.first_name} ${msg.from.last_name}`, {
                         chat_id: msg.message.chat.id,
@@ -355,7 +354,7 @@ async function processCallbackQuery(msg, type, bot) {
 async function manuallyHalal(msg, result, bot) {
     if (msg.chat.id > 0) return
     try {
-        const is_admin = !(['left', 'kicked'].indexOf((await bot.getChatMember(ADMIN_GROUP, msg.from.id)).status) > -1)
+        const is_admin = !(['left', 'kicked'].indexOf((await bot.getChatMember(antihalal_manager, msg.from.id)).status) > -1)
         if (!is_admin) return
         const replyto = msg.reply_to_message
         if (!replyto) {
@@ -363,8 +362,8 @@ async function manuallyHalal(msg, result, bot) {
         }
         let target = msg.reply_to_message.from.id
         // await uploadHalal(replyto, bot)
-        await comlib.UserFlag.setUserFlag(target, 'block', 1)
         await comlib.UserFlag.setUserFlag(target, 'halal', 1)
+        await bot.sendMessage(antihalal_manager, `Manually Halaled\nUID: ${target}\nGID: ${msg.chat.id}\nGTITLE: ${msg.chat.title}\nOID: ${msg.from.id}`)
         await kickByHalal(msg.chat, msg.reply_to_message.from, true, bot)
     } catch (e) {
         console.error(e.stack)
@@ -395,6 +394,99 @@ async function debugTestHalal(msg, result, bot) {
 
 }
 
+async function banUser(msg, result, bot) {
+    if (msg.chat.id != antihalal_manager) return
+    const gid = parseInt(result[1])
+    const uid = parseInt(result[2])
+    try {
+        let ret = await bot.kickChatMember(gid, uid)
+        return await bot.sendMessage(msg.chat.id, `OID: ${msg.from.id}\n${msg.text}\n\n${util.inspect(ret)}`, {
+            parse_mode: 'Markdown'
+        })
+    } catch (e) {
+        return await bot.sendMessage(msg.chat.id, e.message, {
+            parse_mode: 'Markdown'
+        })
+    }
+}
+
+async function unbanUser(msg, result, bot) {
+    if (msg.chat.id != antihalal_manager) return
+    const gid = parseInt(result[1])
+    const uid = parseInt(result[2])
+    try {
+        let ret = await bot.unbanChatMember(gid, uid)
+        return await bot.sendMessage(msg.chat.id, `OID: ${msg.from.id}\n${msg.text}\n\n${util.inspect(ret)}`, {
+            parse_mode: 'Markdown'
+        })
+    } catch (e) {
+        return await bot.sendMessage(msg.chat.id, e.message, {
+            parse_mode: 'Markdown'
+        })
+    }
+}
+
+async function setHalal(msg, result, bot) {
+    if (msg.chat.id != antihalal_manager) return
+    const uid = parseInt(result[1])
+    try {
+        let ret = await comlib.UserFlag.setUserFlag(uid, ['halal', 'nothalal'], [1, 0])
+        return await bot.sendMessage(msg.chat.id, `OID: ${msg.from.id}\n${msg.text}\n\n${util.inspect(ret)}`, {
+            parse_mode: 'Markdown'
+        })
+    } catch (e) {
+        return await bot.sendMessage(msg.chat.id, e.message, {
+            parse_mode: 'Markdown'
+        })
+    }
+}
+
+async function setNotHalal(msg, result, bot) {
+    if (msg.chat.id != antihalal_manager) return
+    const uid = parseInt(result[1])
+    try {
+        let ret = await comlib.UserFlag.setUserFlag(uid, ['halal', 'nothalal'], [0, 1])
+        return await bot.sendMessage(msg.chat.id, `OID: ${msg.from.id}\n${msg.text}\n\n${util.inspect(ret)}`, {
+            parse_mode: 'Markdown'
+        })
+    } catch (e) {
+        return await bot.sendMessage(msg.chat.id, e.message, {
+            parse_mode: 'Markdown'
+        })
+    }
+}
+
+async function getId(msg, result, bot) {
+    return await bot.sendMessage(msg.chat.id, `GID: ${msg.chat.id || '¯\\_(ツ)_/¯'}\nUID: ${msg.reply_to_message ? `<a href=\"tg://user?id=${msg.reply_to_message.from.id}\">${msg.reply_to_message.from.id}</a>` : '¯\\_(ツ)_/¯'}`, {
+        parse_mode: 'HTML'
+    })
+}
+
+async function getUserMention(msg, result, bot) {
+    if (msg.chat.id != antihalal_manager) return
+    const uid = parseInt(result[1])
+    const md = `[${uid}](tg://user?id=${uid})`
+    try {
+        return await bot.sendMessage(msg.chat.id, md, {
+            parse_mode: 'Markdown'
+        })
+    } catch (e) {
+        return await bot.sendMessage(msg.chat.id, e.message, {
+            parse_mode: 'Markdown'
+        })
+    }
+}
+
+async function halalStat(msg, result, bot) {
+    if (msg.chat.id != antihalal_manager) return
+    try {
+        const [is_halal, is_nothalal] = await comlib.UserFlag.queryUserFlag(parseInt(result[1]), ['halal', 'nothalal'])
+        return bot.sendMessage(msg.chat.id, `HALAL: ${is_halal}\nNOTHALAL: ${is_nothalal}\nOVERALL: ${is_halal && !is_nothalal}`)
+    } catch (e) {
+        return bot.sendMessage(msg.chat.id, e.message)
+    }
+}
+
 module.exports = {
     init: (e) => {
         _e = e;
@@ -406,6 +498,13 @@ module.exports = {
     run: [
         ['callback_query', processCallbackQuery],
         [/^\/debug testHalalPoint/, debugTestHalal],
-        [/^\/halal/, manuallyHalal]
+        [/^\/halal$/, manuallyHalal],
+        [/^\/ban ([0-9-]{6,}|reply) ([0-9]{6,})$/, banUser],
+        [/^\/unban ([0-9-]{6,}|reply) ([0-9]{6,})$/, unbanUser],
+        [/^\/halal ([0-9]{6,})$/, setHalal],
+        [/^\/nothalal ([0-9]{6,})$/, setNotHalal],
+        [/^\/id$/, getId],
+        [/^\/getmention ([0-9]{6,})$/, getUserMention],
+        [/^\/halalstat ([0-9]{6,})/, halalStat]
     ]
 }
