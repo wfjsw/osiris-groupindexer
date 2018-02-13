@@ -136,7 +136,29 @@ async function processInlineByName(msg, bot) {
     try {
         const query = msg.query
         const offset = parseInt(msg.offset) || 0
-        let result = await comlib.searchByName(query)
+        let result = await comlib.searchByName(query, offset, single_inline_threshold, 'count_desc')
+        if (!result) {
+            if (msg.offset) {
+                return await bot.answerInlineQuery(msg.id, [], {
+                    next_offset: '',
+                    cache_time: 300, //on production env
+                })
+            } else {
+                const result = [{
+                    type: 'article',
+                    id: '403',
+                    title: `什么都没有找到 _(:з」∠)_`,
+                    input_message_content: {
+                        message_text: '什么都没有找到 _(:з」∠)_',
+                        disable_web_page_preview: true
+                    }
+                }]
+                return await bot.answerInlineQuery(msg.id, result, {
+                    next_offset: '',
+                    cache_time: 300, //on production env
+                })
+            }
+        }
         result = result.filter(record => tags.indexOf(record.tag) > -1)
         const total_length = result.length
         /* if (total_length > 100) {
@@ -156,7 +178,7 @@ async function processInlineByName(msg, bot) {
             })
         } */
         let result_array = []
-        result = result.sort((a, b) => {
+        /*result = result.sort((a, b) => {
             const ca = a.member_count || 0
             const cb = b.member_count || 0
             if (ca > cb) {
@@ -166,8 +188,8 @@ async function processInlineByName(msg, bot) {
             } else if (ca < cb) {
                 return 1
             }
-        })
-        result = result.slice(offset, offset + single_inline_threshold)
+        })*/
+        //result = result.slice(offset, offset + single_inline_threshold)
         result.forEach(ret => {
             const {
                 message,
@@ -197,10 +219,11 @@ async function processInlineByName(msg, bot) {
             result_array.push(item)
         })
         let next_offset
-        if (total_length > (offset + single_inline_threshold))
+        //if (total_length > (offset + single_inline_threshold))
+        //if (total_length >= single_inline_threshold)
             next_offset = offset + single_inline_threshold
-        else
-            next_offset = ''
+        //else
+        //    next_offset = ''
         return await bot.answerInlineQuery(msg.id, result_array, {
             next_offset: next_offset.toString(),
             cache_time: 300, //on production env
@@ -228,10 +251,32 @@ async function processInlineByCategory(msg, bot) {
         const query = /^#(.+)/.exec(msg.query)[1]
         const offset = parseInt(msg.offset) || 0
         if (tags.indexOf(query) > -1) {
-            let result = await comlib.getRecByTag(query)
+            let result = await comlib.getRecByTag(query, offset, single_inline_threshold, 'count_desc')
+            if (!result) {
+                if (msg.offset) {
+                    return await bot.answerInlineQuery(msg.id, [], {
+                        next_offset: '',
+                        cache_time: 300, //on production env
+                    })
+                } else {
+                    const result = [{
+                        type: 'article',
+                        id: '403',
+                        title: `什么都没有找到 _(:з」∠)_`,
+                        input_message_content: {
+                            message_text: '什么都没有找到 _(:з」∠)_',
+                            disable_web_page_preview: true
+                        }
+                    }]
+                    return await bot.answerInlineQuery(msg.id, result, {
+                        next_offset: '',
+                        cache_time: 300, //on production env
+                    })
+                }
+            }
             const total_length = result.length
             let result_array = []
-            result = result.sort((a, b) => {
+            /*result = result.sort((a, b) => {
                 const ca = a.member_count || 0
                 const cb = b.member_count || 0
                 if (ca > cb) {
@@ -241,8 +286,8 @@ async function processInlineByCategory(msg, bot) {
                 } else if (ca < cb) {
                     return 1
                 }
-            })
-            result = result.slice(offset, offset + single_inline_threshold)
+            })*/
+            //result = result.slice(offset, offset + single_inline_threshold)
             result.forEach(ret => {
                 const {
                     message,
@@ -272,10 +317,11 @@ async function processInlineByCategory(msg, bot) {
                 result_array.push(item)
             })
             let next_offset
-            if (total_length > (offset + single_inline_threshold))
+            //if (total_length > (offset + single_inline_threshold))
+            //if (total_length >= single_inline_threshold)
                 next_offset = offset + single_inline_threshold
-            else
-                next_offset = ''
+            //else
+            //    next_offset = ''
             return await bot.answerInlineQuery(msg.id, result_array, {
                 next_offset: next_offset.toString(),
                 cache_time: 300, //on production env
@@ -319,8 +365,7 @@ async function processInlineQuery(msg, type, bot) {
             const result = [{
                 type: 'article',
                 id: '403',
-                title: `
-                                您没有通过身份认证或已被封禁， 无法使用此功能。 `,
+                title: `您没有通过身份认证或已被封禁， 无法使用此功能。 `,
                 input_message_content: {
                     message_text: '请通过身份验证后再使用此功能，验证后请等待 10 秒钟生效。\n\nhttps://t.me/zh_groups_bot',
                     disable_web_page_preview: true

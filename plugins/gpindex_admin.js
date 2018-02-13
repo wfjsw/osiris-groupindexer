@@ -187,6 +187,9 @@ async function doTagMove(msg, result, bot) {
                 const db_ret = await comlib.silentUpdate(gid, {
                     tag: newtag
                 })
+                _e.libs['gpindex_common'].event.emit('passive_updated', {
+                    id: gid
+                })
                 return bot.sendMessage(msg.chat.id, 'Done. \n\n' + util.inspect(db_ret))
             } else {
                 return bot.sendMessage(msg.chat.id, 'Not Found')
@@ -286,6 +289,9 @@ async function doForceUpdate(msg, result, bot) {
                 updation.photo = chat.photo
             }
             const db_ret = await comlib.silentUpdate(chat.id, updation)
+            _e.libs['gpindex_common'].event.emit('passive_updated', {
+                id: chat.id
+            })
             return bot.sendMessage(msg.chat.id, util.inspect(db_ret))
         } catch (e) {
             return bot.sendMessage(msg.chat.id, e.message)
@@ -380,7 +386,7 @@ async function banUser(msg, result, bot) {
             parse_mode: 'Markdown'
         })
     } catch (e) {
-        return await bot.sendMessage(msg.chat.id, e.message, {
+        return bot.sendMessage(msg.chat.id, e.message, {
             parse_mode: 'Markdown'
         })
     }
@@ -396,9 +402,21 @@ async function unbanUser(msg, result, bot) {
             parse_mode: 'Markdown'
         })
     } catch (e) {
-        return await bot.sendMessage(msg.chat.id, e.message, {
+        return bot.sendMessage(msg.chat.id, e.message, {
             parse_mode: 'Markdown'
         })
+    }
+}
+
+async function getMember(msg, result, bot) {
+    if (msg.chat.id != admin_id) return
+    const gid = parseInt(extractId(result[1], msg.reply_to_message))
+    const uid = parseInt(result[2])
+    try {
+        let ret = await bot.getChatMember(gid, uid)
+        return await bot.sendMessage(msg.chat.id, util.inspect(ret))
+    } catch (e) {
+        return bot.sendMessage(msg.chat.id, e.message)
     }
 }
 
@@ -455,6 +473,7 @@ module.exports = {
         ['callback_query', processCallbackButton],
         [/^\/leave ([0-9-]{6,}|reply)$/, leaveGroup],
         [/^\/ban ([0-9-]{6,}|reply) ([0-9]{6,})$/, banUser],
-        [/^\/unban ([0-9-]{6,}|reply) ([0-9]{6,})$/, unbanUser]
+        [/^\/unban ([0-9-]{6,}|reply) ([0-9]{6,})$/, unbanUser],
+        [/^\/getmember ([0-9-]{6,}|reply) ([0-9]{6,})$/, getMember]
     ]
 }

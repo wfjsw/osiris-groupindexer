@@ -8,6 +8,7 @@
     "updatePrivate": "群标题: %s\n分类: #%s\n简介: \n%s\n\nID: %s",
     "updatePrivateChan": "群标题: %s\n分类: #%s\n简介: \n%s\n\nID: %s",
     "buttonJoin": "加入",
-    "buttonDetail": "详情",
-    "buttonShare": "分享"
+    "buttonDetail": "详情/分享",
+    "buttonShare": "分享",
+    "stateRemoved": "*** 群组信息已被移除 ***"
 }

@@ -22,7 +22,12 @@ async function passiveUpdate(chat, record, bot) {
         updation.username = chat.username
         updatable = true
     }
-    if (updatable == true) return _e.libs['gpindex_common'].silentUpdate(gid, updation)
+    if (updatable == true) {
+        _e.libs['gpindex_common'].event.emit('passive_updated', {
+            id: gid
+        })
+        return _e.libs['gpindex_common'].silentUpdate(gid, updation)
+    }
 }
 
 async function passiveUpdateOnGroupMsg(msg, bot) {
@@ -49,7 +54,7 @@ async function passiveUpdateChannel(msg, type, bot) {
 }
 
 async function passiveUpdateOnGetDetail(msg, result, bot) {
-    setImmediate(async () => {
+    setImmediate(async() => {
         try {
             let gid = parseInt(result[1])
             if (!(gid < 0)) return
@@ -61,7 +66,7 @@ async function passiveUpdateOnGetDetail(msg, result, bot) {
             //    if (record.photo.small_file_id != chat.photo.small_file_id)
             //        await fetchChatPhoto(chat, bot)
             //} else {
-                await fetchChatPhoto(chat, bot)
+            await fetchChatPhoto(chat, bot)
             //}
         } catch (e) {
             console.error(e.message)
@@ -184,7 +189,7 @@ module.exports = {
         eventbus.on('new_public_commit', fetchChatOnEnrollment)
         eventbus.on('update_public_data', fetchChatOnEnrollment)
         eventbus.on('new_private_commit', fetchChatOnEnrollment)
-        eventbus.on('update_private_data', fetchChatOnEnrollment)        
+        eventbus.on('update_private_data', fetchChatOnEnrollment)
     },
     preprocess: passiveUpdateOnGroupMsg,
     run: [

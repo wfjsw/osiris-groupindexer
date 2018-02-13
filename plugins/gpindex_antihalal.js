@@ -1,19 +1,19 @@
-const langCodeBanned = ['fa-IR', 'fa', 'ar']
-const halal_display_name = /sharma|pollsciemo|amarhs|moham|ali.*reza|amir|ahmed/i
-const max_halal_char_threshold = 5
-const max_halal_pct_threshold = 0.3
+const langCodeBanned = new Set(['fa-IR', 'fa'])
+const halal_display_name = /sharma|pollsciemo|amarhs|moham|ali.*reza|ahmed/i
+const max_halal_char_threshold = 12
+const max_halal_pct_threshold = 0.45
 const send_capture_threshold = 120
 const send_notification_threshold = 120
 const kick_wait_threshold = 30
 
 const antihalal_manager = -1001159383809
 const chan_capture = -1001135234856
-var _e, comlib, _ga
-let last_sent_group = {}
-let last_sent_capture = {}
-let last_kicked = {}
-let sticker_pack_name_cache = {}
-let tempwhitelist = {}
+var _e, comlib
+let last_sent_group = new Map()
+let last_sent_capture = new Map()
+let last_kicked = new Map()
+let sticker_pack_name_cache = new Map()
+let tempwhitelist = new Map()
 const util = require('util')
 
 function genHalalKB(id) {
@@ -43,16 +43,18 @@ function genHalalKB_G(gid, uid) {
 }
 
 async function uploadHalal(msg, bot) {
+    let is_nocapture = !!(await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'nocapture'))
+    if (is_nocapture) return
     let send = false
-    if (last_sent_capture[msg.from.id.toString()]) {
-        if ((Math.floor(Date.now() / 1000) - last_sent_capture[msg.from.id.toString()]) > send_capture_threshold) {
+    if (last_sent_capture.has(msg.from.id.toString())) {
+        if (Math.floor(Date.now() / 1000) - last_sent_capture.get(msg.from.id.toString()) > send_capture_threshold) {
             send = true
         }
     } else {
         send = true
     }
     if (send) {
-        last_sent_capture[msg.from.id.toString()] = msg.date
+        last_sent_capture.set(msg.from.id.toString(), msg.date)
         let result = await bot.forwardMessage(chan_capture, msg.chat.id, msg.message_id)
         await bot.sendMessage(chan_capture, `${util.inspect(msg.chat)}\n\n${util.inspect(msg.from)}`, {
             reply_to_message_id: result.message_id,
@@ -81,21 +83,22 @@ function testHalal(str) {
         if (count >= max_halal_char_threshold)
             return true
     }
-    if ((count / len) >= max_halal_pct_threshold)
+    if (count / len >= max_halal_pct_threshold)
         return true
     return false
 }
 
 function gcArray() {
-    for (let i in last_sent_group)
-        if (last_sent_group[i] > send_notification_threshold)
-            delete last_sent_group[i]
-    for (let i in last_sent_capture)
-        if (last_sent_capture[i] > send_capture_threshold)
-            delete last_sent_capture[i]
-    for (let i in last_kicked)
-        if (last_kicked[i] > kick_wait_threshold)
-            delete last_kicked[i]
+    let d = Math.floor(Date.now() / 1000)
+    for (let [k, v] of last_sent_group)
+        if (d - v > send_notification_threshold)
+            last_sent_group.delete(k)
+    for (let [k, v] of last_sent_capture)
+        if (d - v > send_capture_threshold)
+            last_sent_capture.delete(k)
+    for (let [k, v] of last_kicked)
+        if (d - v > kick_wait_threshold)
+            last_kicked.delete(k)
 }
 
 async function privateLanguageDetection(msg, bot) {
@@ -103,19 +106,18 @@ async function privateLanguageDetection(msg, bot) {
         description
     } = await bot.getChat(msg.from.id)
     let display_name = msg.from.first_name + (msg.from.last_name || '')
-    let is_halal = testHalal(display_name) || testHalal(description || '') || !!(display_name + (msg.from.username || '')).match(halal_display_name) || langCodeBanned.indexOf(msg.from.language_code) > -1
+    let is_halal = testHalal(display_name) || testHalal(description || '') || !!(display_name + (msg.from.username || '')).match(halal_display_name) || langCodeBanned.has(msg.from.language_code)
     if (is_halal) {
-        // _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.languageBanned')
         let send = false
-        if (last_sent_capture[msg.from.id.toString()]) {
-            if ((Math.floor(Date.now() / 1000) - last_sent_capture[msg.from.id.toString()]) > send_capture_threshold) {
+        if (last_sent_capture.has(msg.from.id.toString())) {
+            if (Math.floor(Date.now() / 1000) - last_sent_capture.get(msg.from.id.toString()) > send_capture_threshold) {
                 send = true
             }
         } else {
             send = true
         }
         if (send) {
-            last_sent_capture[msg.from.id.toString()] = msg.date
+            last_sent_capture.set(msg.from.id.toString(), msg.date)
             let result = await bot.forwardMessage(chan_capture, msg.chat.id, msg.message_id)
             await bot.sendMessage(chan_capture, `Private Chat\n\n${util.inspect(msg.from)}\n\n已经根据语言上交给安拉。`, {
                 reply_to_message_id: result.message_id
@@ -130,12 +132,13 @@ async function privateLanguageDetection(msg, bot) {
 }
 
 async function examineDisplayName(msg, new_member, bot) {
-    let inviter_display_name = msg.from.first_name + (msg.from.last_name || '')
-    let display_name = new_member.first_name + (new_member.last_name || '')
-    const is_kick_halal_name = !!(await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:antihalalenhanced'))
-    let is_halal = testHalal(inviter_display_name) || testHalal(display_name) || !!(display_name + (new_member.username || '')).match(halal_display_name) || langCodeBanned.indexOf(new_member.language_code) > -1 || langCodeBanned.indexOf(msg.from.language_code) > -1
+    let inviter_desc = (await bot.getChat(msg.from.id)).description || ''
+    let inviter_display_name = msg.from.first_name + (msg.from.last_name || '') + inviter_desc
+    let newmember_desc = (await bot.getChat(new_member.id)).description || ''
+    let display_name = new_member.first_name + (new_member.last_name || '') + newmember_desc
+    const is_kick_halal_name = !!await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:antihalalenhanced')
+    let is_halal = testHalal(inviter_display_name) || testHalal(display_name) || !!(display_name + (new_member.username || '')).match(halal_display_name) || langCodeBanned.has(new_member.language_code) || langCodeBanned.has(msg.from.language_code)
     if (is_halal) {
-        // _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.display-name')
         await bot.sendMessage(chan_capture, `清真加群\n\n${util.inspect(msg.chat)}\n搞事的人\n${util.inspect(msg.from)}\n清真\n${util.inspect(new_member)}`, {
             reply_markup: genHalalKB(new_member.id)
         })
@@ -148,24 +151,33 @@ async function examineDisplayName(msg, new_member, bot) {
 async function examineSticker(msg, bot) {
     let display_name = msg.from.first_name + (msg.from.last_name || '')
     let stickerset = msg.sticker.set_name
-    let stickersetname = sticker_pack_name_cache[stickerset] || (await bot.getStickerSet(stickerset)).title
-    sticker_pack_name_cache[stickerset] = stickersetname
-    let is_halal = testHalal(stickersetname) || testHalal(display_name + stickersetname) || langCodeBanned.indexOf(msg.from.language_code) > -1
+    let stickersetname = sticker_pack_name_cache.get(stickerset) || (await bot.getStickerSet(stickerset)).title
+    const is_enhanced = !!await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:antihalalenhanced')
+    sticker_pack_name_cache.set(stickerset, stickersetname)
+    let is_halal = testHalal(stickersetname) || langCodeBanned.has(msg.from.language_code)
+    let is_halalenhanced = testHalal(display_name + stickersetname)
     if (is_halal) {
-        _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.sticker')
         await uploadHalal(msg, bot)
-        if (!tempwhitelist[msg.chat.id.toString() + msg.from.id.toString()])
+        if (!tempwhitelist.has(msg.chat.id.toString() + msg.from.id.toString()))
             await kickByHalal(msg.chat, msg.from, false, bot)
         return true
+    }
+    if (is_halalenhanced) {
+        await uploadHalal(msg, bot)
+        if (!tempwhitelist.has(msg.chat.id.toString() + msg.from.id.toString()) && is_enhanced) {
+            await kickByHalal(msg.chat, msg.from, false, bot)
+            return true
+        }
     }
     return false
 }
 
 async function examineNormalMsg(msg, bot) {
+    const is_enhanced = !!await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:antihalalenhanced')
     let need_test = ''
     let display_name = msg.from.first_name + (msg.from.last_name || '')
-    need_test += display_name
-    let is_halal = testHalal(display_name) || langCodeBanned.indexOf(msg.from.language_code) > -1
+    let is_halal = langCodeBanned.has(msg.from.language_code)
+    let is_halal_name = testHalal(display_name)
     if (msg.text) {
         need_test += msg.text
         is_halal = is_halal || testHalal(msg.text)
@@ -180,63 +192,67 @@ async function examineNormalMsg(msg, bot) {
     }
     is_halal = is_halal || testHalal(need_test)
     if (is_halal) {
-        // _ga.tEvent(msg.from, 'antiHalal', 'antiHalal.normal-msg')
         await uploadHalal(msg, bot)
-        if (!tempwhitelist[msg.chat.id.toString() + msg.from.id.toString()])
+        if (!tempwhitelist.has(msg.chat.id.toString() + msg.from.id.toString()))
             await kickByHalal(msg.chat, msg.from, false, bot)
         return true
+    }
+    if (is_halal_name) {
+        await uploadHalal(msg, bot)
+        if (!tempwhitelist.has(msg.chat.id.toString() + msg.from.id.toString()) && is_enhanced) {
+            await kickByHalal(msg.chat, msg.from, false, bot)
+            return true
+        }
     }
     return false
 }
 
 async function kickByHalal(group, user, is_flag, bot) {
-    const is_halal_process_enabled = !!(await comlib.GroupExTag.queryGroupExTag(group.id, 'feature:antihalal'))
+    const is_halal_process_enabled = !!await comlib.GroupExTag.queryGroupExTag(group.id, 'feature:antihalal')
     if (is_halal_process_enabled) {
         let usermsg = `清真用户：<a href="tg://user?id=${user.id}">${user.first_name || ''}`
         if (user.last_name) usermsg += ` ${user.last_name || ''}`
         usermsg += `</a> (${user.id})`
         try {
-            if (last_kicked[group.id.toString() + user.id.toString()]) {
-                if ((Math.floor(Date.now() / 1000) - last_kicked[group.id.toString() + user.id.toString()]) > kick_wait_threshold) {
-                    last_kicked[group.id.toString() + user.id.toString()] = Math.floor(Date.now() / 1000)
+            if (last_kicked.has(group.id.toString() + user.id.toString())) {
+                if (Math.floor(Date.now() / 1000) - last_kicked.get(group.id.toString() + user.id.toString()) > kick_wait_threshold) {
+                    last_kicked.set(group.id.toString() + user.id.toString(), Math.floor(Date.now() / 1000))
                     await bot.kickChatMember(group.id, user.id)
                 }
             } else {
-                last_kicked[group.id.toString() + user.id.toString()] = Math.floor(Date.now() / 1000)
+                last_kicked.set(group.id.toString() + user.id.toString(), Math.floor(Date.now() / 1000))
                 await bot.kickChatMember(group.id, user.id)
             }
             let send = false
-            if (last_sent_group[group.id.toString() + user.id.toString()]) {
-                if ((Math.floor(Date.now() / 1000) - last_sent_group[group.id.toString() + user.id.toString()]) > send_notification_threshold) {
+            if (last_sent_group.has(group.id.toString() + user.id.toString())) {
+                if (Math.floor(Date.now() / 1000) - last_sent_group.get(group.id.toString() + user.id.toString()) > send_notification_threshold) {
                     send = true
                 }
             } else {
                 send = true
             }
             if (send) {
-                last_sent_group[group.id.toString() + user.id.toString()] = Math.floor(Date.now() / 1000)
+                last_sent_group.set(group.id.toString() + user.id.toString(), Math.floor(Date.now() / 1000))
                 let message = !is_flag ? `#HALAL #ENFORCED 已检测到一个清真并且吃掉了。如果出现误报请群组管理员点击下面的按钮临时解封并上报。\n\n${usermsg}` : `#HALAL #ENFORCED 已检测到一个清真并且吃掉了。如果出现误处理请联系工单加入清真白名单。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}`
                 await bot.sendMessage(group.id, message, {
                     parse_mode: 'HTML',
                     reply_markup: is_flag ? null : genHalalKB_G(group.id, user.id)
                 })
-                // _ga.tEvent(user, 'antiHalal', 'antiHalal.kicked')
             }
         } catch (e) {
             let send = false
-            if (last_sent_group[group.id.toString() + user.id.toString()]) {
-                if ((Math.floor(Date.now() / 1000) - last_sent_group[group.id.toString() + user.id.toString()]) > send_notification_threshold) {
+            if (last_sent_group.has(group.id.toString() + user.id.toString())) {
+                if (Math.floor(Date.now() / 1000) - last_sent_group.get(group.id.toString() + user.id.toString()) > send_notification_threshold) {
                     send = true
                 }
             } else {
                 send = true
             }
             if (send) {
-                last_sent_group[group.id.toString() + user.id.toString()] = Math.floor(Date.now() / 1000)
+                last_sent_group.set(group.id.toString() + user.id.toString(), Math.floor(Date.now() / 1000))
                 await bot.sendMessage(group.id, `#HALAL 已检测到一个清真，如果出现误处理请联系工单加入清真白名单。如需自动吃掉，请授予机器人封禁用户的权限。\nTGCN-工单系统：@tgcntkbot\n\n${usermsg}`, {
                     parse_mode: 'HTML'
                 })
-                _ga.tEvent(user, 'antiHalal', 'noSpam.kick-fail')
             }
         }
     }
@@ -244,14 +260,14 @@ async function kickByHalal(group, user, is_flag, bot) {
 
 async function preProcessStack(msg, bot) {
     try {
-        const non_halal = !!(await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal'))
+        const non_halal = !!await comlib.UserFlag.queryUserFlag(msg.from.id, 'nothalal')
         if (non_halal) return
         let is_halal
         if (msg.chat.id > 0) {
             return await privateLanguageDetection(msg, bot)
         } else if (msg.new_chat_members) {
             for (let member of msg.new_chat_members) {
-                const halal = !!(await comlib.UserFlag.queryUserFlag(member.id, 'halal'))
+                const halal = !!await comlib.UserFlag.queryUserFlag(member.id, 'halal')
                 if (halal) {
                     await kickByHalal(msg.chat, member, true, bot)
                     is_halal = true
@@ -260,7 +276,7 @@ async function preProcessStack(msg, bot) {
                 }
             }
         } else if (!msg.left_chat_member) {
-            const halal = !!(await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal'))
+            const halal = !!await comlib.UserFlag.queryUserFlag(msg.from.id, 'halal')
             if (halal) {
                 await kickByHalal(msg.chat, msg.from, true, bot)
                 is_halal = true
@@ -271,7 +287,7 @@ async function preProcessStack(msg, bot) {
             }
         }
         if (is_halal) {
-            const is_halal_process_enabled = !!(await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:antihalal'))
+            const is_halal_process_enabled = !!await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:antihalal')
             if (is_halal_process_enabled) {
                 try {
                     await bot.deleteMessage(msg.chat.id, msg.message_id)
@@ -298,12 +314,12 @@ async function processCallbackQuery(msg, type, bot) {
                         chat_id: msg.message.chat.id,
                         message_id: msg.message.message_id,
                     })
-                    return await bot.answerCallbackQuery({
+                    return bot.answerCallbackQuery({
                         callback_query_id: msg.id,
                         text: '已经上交给了真主安拉。'
                     })
                 } else {
-                    return await bot.answerCallbackQuery({
+                    return bot.answerCallbackQuery({
                         callback_query_id: msg.id,
                         text: '你不是老阿訇。'
                     })
@@ -315,34 +331,34 @@ async function processCallbackQuery(msg, type, bot) {
                         chat_id: msg.message.chat.id,
                         message_id: msg.message.message_id,
                     })
-                    return await bot.answerCallbackQuery({
+                    return bot.answerCallbackQuery({
                         callback_query_id: msg.id,
                         text: '好的，这不清真。'
                     })
                 } else {
-                    return await bot.answerCallbackQuery({
+                    return bot.answerCallbackQuery({
                         callback_query_id: msg.id,
                         text: '你不是老阿訇。'
                     })
                 }
             case 'gnh':
-                const is_groupadmin = (['creator', 'administrator'].indexOf((await bot.getChatMember(msg.message.chat.id, msg.from.id)).status) > -1)
+                const is_groupadmin = ['creator', 'administrator'].indexOf((await bot.getChatMember(msg.message.chat.id, msg.from.id)).status) > -1
                 if (is_superadmin || is_groupadmin) {
                     await bot.editMessageText(`${msg.message.text}\n\n✅好的，这不清真。阿訇：${msg.from.first_name} ${msg.from.last_name}`, {
                         chat_id: msg.message.chat.id,
                         message_id: msg.message.message_id,
                     })
                     await bot.sendMessage(chan_capture, `${util.inspect(msg.message.chat)}\n管理员 ${msg.from.first_name} ${msg.from.last_name} \n 表示 ${uid} 不清真`)
-                    tempwhitelist[msg.message.chat.id.toString() + uid.toString()] = true
+                    tempwhitelist.set(msg.message.chat.id.toString() + uid.toString(), true)
                     try {
                         await bot.unbanChatMember(msg.message.chat.id, uid)
                     } catch (e) {}
-                    return await bot.answerCallbackQuery({
+                    return bot.answerCallbackQuery({
                         callback_query_id: msg.id,
                         text: '好的，这不清真。'
                     })
                 } else {
-                    return await bot.answerCallbackQuery({
+                    return bot.answerCallbackQuery({
                         callback_query_id: msg.id,
                         text: '你不是阿訇。'
                     })
@@ -376,7 +392,7 @@ async function debugTestHalal(msg, result, bot) {
     let need_test = ''
     let display_name = msg.reply_to_message.from.first_name + (msg.reply_to_message.from.last_name || '')
     need_test += display_name
-    let is_halal = testHalal(display_name) || langCodeBanned.indexOf(msg.reply_to_message.from.language_code) > -1
+    let is_halal = testHalal(display_name) || langCodeBanned.has(msg.reply_to_message.from.language_code)
     if (msg.reply_to_message.text) {
         need_test += msg.reply_to_message.text
         is_halal = is_halal || testHalal(msg.reply_to_message.text)
@@ -404,7 +420,7 @@ async function banUser(msg, result, bot) {
             parse_mode: 'Markdown'
         })
     } catch (e) {
-        return await bot.sendMessage(msg.chat.id, e.message, {
+        return bot.sendMessage(msg.chat.id, e.message, {
             parse_mode: 'Markdown'
         })
     }
@@ -420,7 +436,7 @@ async function unbanUser(msg, result, bot) {
             parse_mode: 'Markdown'
         })
     } catch (e) {
-        return await bot.sendMessage(msg.chat.id, e.message, {
+        return bot.sendMessage(msg.chat.id, e.message, {
             parse_mode: 'Markdown'
         })
     }
@@ -435,7 +451,7 @@ async function setHalal(msg, result, bot) {
             parse_mode: 'Markdown'
         })
     } catch (e) {
-        return await bot.sendMessage(msg.chat.id, e.message, {
+        return bot.sendMessage(msg.chat.id, e.message, {
             parse_mode: 'Markdown'
         })
     }
@@ -450,14 +466,14 @@ async function setNotHalal(msg, result, bot) {
             parse_mode: 'Markdown'
         })
     } catch (e) {
-        return await bot.sendMessage(msg.chat.id, e.message, {
+        return bot.sendMessage(msg.chat.id, e.message, {
             parse_mode: 'Markdown'
         })
     }
 }
 
 async function getId(msg, result, bot) {
-    return await bot.sendMessage(msg.chat.id, `GID: ${msg.chat.id || '¯\\_(ツ)_/¯'}\nUID: ${msg.reply_to_message ? `<a href=\"tg://user?id=${msg.reply_to_message.from.id}\">${msg.reply_to_message.from.id}</a>` : '¯\\_(ツ)_/¯'}`, {
+    return bot.sendMessage(msg.chat.id, `GID: ${msg.chat.id || '¯\\_(ツ)_/¯'}\nUID: ${msg.reply_to_message ? `<a href=\"tg://user?id=${msg.reply_to_message.from.id}\">${msg.reply_to_message.from.id}</a>` : '¯\\_(ツ)_/¯'}`, {
         parse_mode: 'HTML'
     })
 }
@@ -471,7 +487,7 @@ async function getUserMention(msg, result, bot) {
             parse_mode: 'Markdown'
         })
     } catch (e) {
-        return await bot.sendMessage(msg.chat.id, e.message, {
+        return bot.sendMessage(msg.chat.id, e.message, {
             parse_mode: 'Markdown'
         })
     }
@@ -481,7 +497,7 @@ async function halalStat(msg, result, bot) {
     if (msg.chat.id != antihalal_manager) return
     try {
         const [is_halal, is_nothalal] = await comlib.UserFlag.queryUserFlag(parseInt(result[1]), ['halal', 'nothalal'])
-        return bot.sendMessage(msg.chat.id, `HALAL: ${is_halal}\nNOTHALAL: ${is_nothalal}\nOVERALL: ${is_halal && !is_nothalal}`)
+        return bot.sendMessage(msg.chat.id, `HALAL: ${!!is_halal}\nNOTHALAL: ${!!is_nothalal}\nOVERALL: ${!!(is_halal && !is_nothalal)}`)
     } catch (e) {
         return bot.sendMessage(msg.chat.id, e.message)
     }
@@ -491,7 +507,6 @@ module.exports = {
     init: (e) => {
         _e = e;
         comlib = _e.libs['gpindex_common'];
-        _ga = e.libs['ga'];
         setInterval(gcArray, 5 * 60 * 1000)
     },
     preprocess: preProcessStack,

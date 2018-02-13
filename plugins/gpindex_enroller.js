@@ -47,7 +47,7 @@ async function startEnrollment(msg, result, bot) {
                 if (is_halal && !is_nothalal) {
                     return bot.sendSticker(msg.chat.id, stickerHalal[Math.floor(Math.random() * stickerHalal.length)])
                 }
-                const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
+                const is_in_jvbao = _e.libs['nojvbao_lib'] ? await _e.libs['nojvbao_lib'].checkUser(msg.from.id) : false
                 if (!(_e.plugins['gpindex_validateuser'] && !is_validated && !is_in_jvbao)) {
                     if (!is_blocked) {
                         var cburl = `https://telegram.me/${_e.me.username}?startgroup=grpselect`
@@ -138,7 +138,7 @@ async function groupChosen(msg, result, bot) {
 async function redirectToPrivateEnrollState(msg, bot) {
     let is_creator = (await bot.getChatMember(msg.message.chat.id, msg.from.id)).status == 'creator'
     if (!is_creator) {
-        return await bot.answerCallbackQuery({
+        return bot.answerCallbackQuery({
             callback_query_id: msg.id,
             text: langres['errorNotCreator']
         })
@@ -191,10 +191,10 @@ async function checkChannelEnrollCondition(msg, bot) {
     try {
         user_status = (await bot.getChatMember(channel_id, msg.from.id)).status
     } catch (e) {
-        return await bot.sendMessage(msg.chat.id, langres['errorBotIsNotChannelAdmin'])
+        return bot.sendMessage(msg.chat.id, langres['errorBotIsNotChannelAdmin'])
     }
     if (user_status != 'creator') {
-        return await bot.sendMessage(msg.chat.id, langres['errorNotCreator'])
+        return bot.sendMessage(msg.chat.id, langres['errorNotCreator'])
     }
     const channel_data = await bot.getChat(channel_id)
     delete channel_data['pinned_message']
@@ -335,7 +335,7 @@ async function processLink(msg, result, bot) {
 
 async function processUnIntendedLink(msg, result, bot) {
     if (msg.chat.id > 0 && !session[msg.from.id])
-        return await bot.sendMessage(msg.chat.id, langres['infoUnintendedLink'], {
+        return bot.sendMessage(msg.chat.id, langres['infoUnintendedLink'], {
             reply_to_message_id: msg.message_id
         })
 }
@@ -423,7 +423,7 @@ async function enrollerConfirmEnroll(msg, bot) {
 async function enrollerCancel(msg, bot) {
     delete session[msg.from.id];
     comlib.unsetLock(msg.from.id);
-    return await bot.editMessageText(langres['infoSessionCleared'], {
+    return bot.editMessageText(langres['infoSessionCleared'], {
         chat_id: msg.message.chat.id,
         message_id: msg.message.message_id
     });
@@ -574,7 +574,7 @@ async function pushUpdateDialogPM(msg, result, bot) {
         })
     } catch (e) {
         console.error(e.stack)
-        return await bot.sendMessage(msg.chat.id, '无法发送控制面板。')
+        return bot.sendMessage(msg.chat.id, '无法发送控制面板。')
     }
 }
 
@@ -593,7 +593,7 @@ async function pushUpdateDialogGroup(msg, result, bot) {
         return await bot.sendMessage(gid, '控制面板已经私聊给你了。')
     } catch (e) {
         console.error(e.stack)
-        return await bot.sendMessage(gid, '无法发送控制面板。请检查您是否已将本机器人屏蔽。')
+        return bot.sendMessage(gid, '无法发送控制面板。请检查您是否已将本机器人屏蔽。')
     }
 }
 
@@ -603,37 +603,36 @@ async function updatePrivateLink(msg, result, bot) {
             id: msg.chat.id,
             invite_link: result[1],
             is_update: true
-        };
-        comlib.getRecord(msg.chat.id)
-            .then(ret => {
-                if (ret) {
-                    if (ret.creator != msg.from.id) throw 'errorNotCreator'
-                    if (updatenotify.invite_link == ret.invite_link) throw 'errorNoChanges'
-                    else if (!ret.is_public && !msg.chat.username) {
-                        updatenotify.title = ret.title
-                        return comlib.doEnrollment(updatenotify)
-                    } else if (!ret.is_public && msg.chat.username) throw 'errorPrivToPub'
-                    else if (ret.is_public && !msg.chat.username) {
-                        updatenotify.title = ret.title
-                        updatenotify.is_public = false
-                        bot.sendMessage(msg.chat.id, langres['infoPubToPrivDone'])
-                        return comlib.doEnrollment(updatenotify)
-                    }
-                } else {
-                    throw 'errorNotIndexed'
+        }
+        try {
+            let record = await comlib.getRecord(msg.chat.id)
+            if (record) {
+                if (record.creator != msg.from.id) throw 'errorNotCreator'
+                if (updatenotify.invite_link == record.invite_link) throw 'errorNoChanges'
+                else if (!record.is_public && !msg.chat.username) {
+                    updatenotify.title = record.title
+                    return comlib.doEnrollment(updatenotify)
+                } else if (!record.is_public && msg.chat.username) throw 'errorPrivToPub'
+                else if (record.is_public && !msg.chat.username) {
+                    updatenotify.title = record.title
+                    updatenotify.is_public = false
+                    bot.sendMessage(msg.chat.id, langres['infoPubToPrivDone'])
+                    return comlib.doEnrollment(updatenotify)
                 }
-            }).then(ret => {
-                bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
-            }).catch((e) => {
-                var replymark = {
-                    reply_to_message_id: msg.message_id
-                }
-                if (e == 'errorNotCreator') return //bot.sendMessage(msg.chat.id, langres['errorNotCreator'], replymark);
-                else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'], replymark);
-                else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges'], replymark);
-                else if (e == 'errorPrivToPub') bot.sendMessage(msg.chat.id, langres['errorPrivToPub'], replymark);
-                else errorProcess(msg, bot, e);
-            }) // To be continued
+            } else {
+                throw 'errorNotIndexed'
+            }
+            await bot.sendMessage(msg.chat.id, langres['infoPrivDone']);
+        } catch (e) {
+            var replymark = {
+                reply_to_message_id: msg.message_id
+            }
+            if (e == 'errorNotCreator') return //bot.sendMessage(msg.chat.id, langres['errorNotCreator'], replymark);
+            else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'], replymark);
+            else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges'], replymark);
+            else if (e == 'errorPrivToPub') bot.sendMessage(msg.chat.id, langres['errorPrivToPub'], replymark);
+            else errorProcess(msg, bot, e);
+        } // To be continued
     } else {
         bot.sendMessage(msg.chat.id, langres['errorNotInGroup']);
     }
@@ -685,7 +684,7 @@ function updateInfo(msg, result, bot) {
                 var replymark = {
                     reply_to_message_id: msg.message_id
                 }
-                if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator'], replymark);
+                if (e == 'errorNotCreator') return // bot.sendMessage(msg.chat.id, langres['errorNotCreator'], replymark);
                 else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'], replymark);
                 else if (e == 'errorNoChanges') bot.sendMessage(msg.chat.id, langres['errorNoChanges'], replymark);
                 else if (e == 'errorPubToPriv') bot.sendMessage(msg.chat.id, langres['errorPubToPriv'], replymark);
@@ -696,53 +695,44 @@ function updateInfo(msg, result, bot) {
     }
 }
 
-function enrollmentOptOut(msg, result, bot) {
-    if (msg.chat.id < 0) {
-        if (session[msg.chat.id] == 'optout') {
-            comlib.getRecord(msg.chat.id)
-                .then(ret => {
-                    if (ret)
-                        if (ret.creator != msg.from.id) throw 'errorNotCreator'
-                    else return msg.chat.id
-                    else throw 'errorNotIndexed'
-                })
-                .then(ret => {
-                    return comlib.doRemoval(ret)
-                })
-                .then(ret => {
-                    // Process Response
-                    bot.sendMessage(msg.chat.id, langres['infoRemoved'])
-                    comlib.event.emit('group_removal', msg.chat.id)
-                    delete session[msg.chat.id]
-                }).catch((e) => {
-                    if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator'])
-                    else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'])
-                    else errorProcess(msg, bot, e)
-                })
-        } else {
-            comlib.getRecord(msg.chat.id)
-                .then(ret => {
-                    if (ret)
-                        if (ret.creator != msg.from.id) throw 'errorNotCreator'
-                    else return bot.sendMessage(msg.chat.id, langres['promptRemoveConfirm'])
-                    else throw 'errorNotIndexed'
-                })
-                .then(ret => {
-                    session[msg.chat.id] = 'optout'
-                })
-                .catch((e) => {
-                    if (e == 'errorNotCreator') bot.sendMessage(msg.chat.id, langres['errorNotCreator'])
-                    else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'])
-                    else errorProcess(msg, bot, e)
-                })
+async function enrollmentOptOut(msg, result, bot) {
+    if (msg.chat.id > 0) return bot.sendMessage(msg.chat.id, langres['errorNotInGroup'])
+    if (session[msg.chat.id] == 'optout') {
+        try {
+            let record = await comlib.getRecord(msg.chat.id)
+            if (record)
+                if (record.creator != msg.from.id) throw 'errorNotCreator'
+            else throw 'errorNotIndexed'
+            await comlib.doRemoval(msg.chat.id)
+            await bot.sendMessage(msg.chat.id, langres['infoRemoved'])
+            comlib.event.emit('group_removal', msg.chat.id)
+            delete session[msg.chat.id]
+        } catch (e) {
+            if (e == 'errorNotCreator') return // bot.sendMessage(msg.chat.id, langres['errorNotCreator'])
+            else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'])
+            else errorProcess(msg, bot, e)
         }
     } else {
-        bot.sendMessage(msg.chat.id, langres['errorNotInGroup'])
+        try {
+            let record = await comlib.getRecord(msg.chat.id)
+            if (record) {
+                if (record.creator != msg.from.id) throw 'errorNotCreator'
+                else {
+                    session[msg.chat.id] = 'optout'
+                    return await bot.sendMessage(msg.chat.id, langres['promptRemoveConfirm'])
+                }
+            } else throw 'errorNotIndexed'
+        } catch (e) {
+            if (e == 'errorNotCreator') return // bot.sendMessage(msg.chat.id, langres['errorNotCreator'])
+            else if (e == 'errorNotIndexed') bot.sendMessage(msg.chat.id, langres['errorNotIndexed'])
+            else errorProcess(msg, bot, e)
+        }
     }
 }
 
 function processText(msg, type, bot) {
     var input = msg.text;
+    if (msg.chat.id < 0) return
     if (msg.text.match(/^\/cancel/)) return
     try {
         if (session[msg.from.id]) {

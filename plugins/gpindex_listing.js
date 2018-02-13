@@ -108,7 +108,7 @@ function generateList(recs) {
     let outmsg = []
     outmsg[0] = ''
     var head = 0
-    let sorted_recs = recs.sort((a, b) => {
+    /*let sorted_recs = recs.sort((a, b) => {
         const ca = a.member_count || 0
         const cb = b.member_count || 0
         if (ca > cb) {
@@ -118,8 +118,9 @@ function generateList(recs) {
         } else if (ca < cb) {
             return 1
         }
-    })
-    sorted_recs.forEach((child) => {
+    })*/
+    //sorted_recs.forEach((child) => {
+    for (let child of recs) {
         var link = `https://t.me/${_e.me.username}?start=DEC-${b64url.encode(`getdetail=${child.id}`)}`
         var line, prefix;
 
@@ -156,7 +157,8 @@ function generateList(recs) {
             outmsg[outmsg.length] = line;
             head = 1;
         }
-    })
+    }
+    //})
     return outmsg
 }
 
@@ -213,7 +215,7 @@ async function sendFirstPageListByCategory(msg, bot) {
         const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
         if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && !is_in_jvbao) {
             _ga.tEvent(msg.from, 'listing', 'listing.listGroups', msg.text)
-            const recs = await comlib.getRecByTag(msg.text)
+            const recs = await comlib.getRecByTag(msg.text, null, null, 'count_desc')
             let outmsg = generateList(recs)
             //for (var i = 0; i < outmsg.length; i++) {
             let do_pagination = outmsg.length > 1
@@ -256,7 +258,7 @@ async function pagination_editListByCategory(msg, bot, operator, query) {
         const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
         if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && (!is_halal || is_nothalal) && !is_in_jvbao) {
             const [category, current_page] = query.split('-')
-            const recs = await comlib.getRecByTag(category)
+            const recs = await comlib.getRecByTag(category, null, null, 'count_desc')
             let outmsg = generateList(recs)
             let this_page
             if (operator == 'prev') this_page = parseInt(current_page) - 1
@@ -325,7 +327,7 @@ async function doSearch(msg, result, bot) {
             }
             const is_in_jvbao = _e.libs['nojvbao_lib'] ? (await _e.libs['nojvbao_lib'].checkUser(msg.from.id)) : false
             if (!(_e.plugins['gpindex_validateuser'] && !is_validated) && !is_blocked && !is_in_jvbao) {
-                let recs = await comlib.searchByName(result[1])
+                let recs = await comlib.searchByName(result[1], null, null, 'count_desc')
                 recs = recs.filter(record => tags.indexOf(record.tag) > -1)
                 if (recs.length > 0) {
                     if (recs.length > 40) {

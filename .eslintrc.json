@@ -21,6 +21,8 @@
         "constructor-super": "warn",
         "valid-typeof": "warn",
         "indent": "off",
-        "no-extra-semi": "warn"
+        "no-extra-semi": "warn",
+        "no-return-await": "warn",
+        "no-extra-parens": "warn"
     }
 }
