@@ -20,7 +20,7 @@ var tags = require('../config.gpindex.json')['gpindex_tags'];
  */
 function errorProcess(msg, bot, err) {
     if (err == 'notValidated') return
-    var errorlog = '```\n' + err.stack + '```\n';
+    var errorlog = 'enroller: \n```\n' + err.message + '```\n';
     console.error(err);
     _ga.tException(msg.from, err, true)
     bot.sendMessage(msg.chat.id, langres['infoBugReport'], {
@@ -157,6 +157,13 @@ async function groupSelected(msg, result, bot) {
         uid = msg.from.id,
         sid = msg.chat.id
     let is_creator = (await bot.getChatMember(gid, uid)).status == 'creator'
+    const [is_validated, is_blocked, is_halal, is_nothalal] = await comlib.UserFlag.queryUserFlag(msg.from.id, ['validated', 'block', 'halal', 'nothalal'])
+    if (is_halal && !is_nothalal) {                     
+        return bot.sendSticker(msg.chat.id, stickerHalal[Math.floor(Math.random() * stickerHalal.length)])
+    }
+    if (is_blocked) {
+        return bot.sendMessage(msg.chat.id, langres['errorUserBanned']);
+    }
     if (is_creator && sid > 0 && gid < 0) {
         // do shit posting
         comlib.setLock(uid)
@@ -225,7 +232,7 @@ async function processEnrollWaitTag(uid, ret, msg, bot) {
         col = [];
     }
     try {
-        await bot.sendMessage(uid, util.format(langres['promptSendTag'], tags.join('\n')), {
+        await bot.sendMessage(uid, langres['promptSendTag'], {
             reply_markup: {
                 keyboard: row,
                 one_time_keyboard: true
@@ -700,9 +707,8 @@ async function enrollmentOptOut(msg, result, bot) {
     if (session[msg.chat.id] == 'optout') {
         try {
             let record = await comlib.getRecord(msg.chat.id)
-            if (record)
-                if (record.creator != msg.from.id) throw 'errorNotCreator'
-            else throw 'errorNotIndexed'
+            if (!record) throw 'errorNotIndexed'
+            if (record.creator != msg.from.id) throw 'errorNotCreator'
             await comlib.doRemoval(msg.chat.id)
             await bot.sendMessage(msg.chat.id, langres['infoRemoved'])
             comlib.event.emit('group_removal', msg.chat.id)

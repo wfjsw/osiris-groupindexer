@@ -19,7 +19,7 @@ var _e, comlib, _ga;
 
 function errorProcess(msg, bot, err) {
     if (err == 'notValidated') return
-    var errorlog = '```\n' + err.stack + '```\n';
+    var errorlog = 'inline: \n```\n' + err.message + '```\n';
     _ga.tException(msg.from, err, true)
     console.error(err);
     bot.sendMessage(gpindex_admin, errorlog, {

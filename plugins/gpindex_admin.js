@@ -437,6 +437,30 @@ async function deleteForInvalidMark(gid, msg, bot) {
     }
 }
 
+async function doMigrate(msg, result, bot) {
+    try {
+        if (msg.chat.id != admin_id) return
+        let old_g = parseInt(result[1])
+        let new_g = parseInt(result[2])
+        const old_data = await comlib.getRecord(old_g)
+        if (!old_data) return
+        let new_data = Object.assign({}, old_data, {
+            id: new_g,
+            migrate_from_chat_id: old_g
+        })
+        delete new_data.extag
+        const rm_stat = await comlib.doRemoval(msg.old_g)
+        const ins_stat = await comlib.silentInsert(new_data)
+        const old_extag = old_data.extag
+        await comlib.GroupExTag.setGroupExTag(msg.chat.id, Object.keys(old_extag), Object.values(old_extag))
+        comlib.event.emit('passive_updated', new_data)
+        await bot.sendMessage(admin_id, util.inspect(new_data))
+    } catch (e) {
+        console.error(e.message)
+        await bot.sendMessage(admin_id, '[admin:460]\n' + util.inspect(e.stack))
+    }
+}
+
 async function processCallbackButton(msg, type, bot) {
     let datapart = msg.data.split('&')
     switch (datapart[0]) {
@@ -474,6 +498,7 @@ module.exports = {
         [/^\/leave ([0-9-]{6,}|reply)$/, leaveGroup],
         [/^\/ban ([0-9-]{6,}|reply) ([0-9]{6,})$/, banUser],
         [/^\/unban ([0-9-]{6,}|reply) ([0-9]{6,})$/, unbanUser],
-        [/^\/getmember ([0-9-]{6,}|reply) ([0-9]{6,})$/, getMember]
+        [/^\/getmember ([0-9-]{6,}|reply) ([0-9]{6,})$/, getMember],
+        [/^\/migrate ([0-9-]{6,}) ([0-9-]{6,})/, doMigrate]
     ]
 }

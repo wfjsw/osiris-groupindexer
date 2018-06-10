@@ -10,6 +10,15 @@ const {
     groupsicon_location
 } = require('../config.gpindex.json')
 
+function isFileExist(file) {
+    return new Promise((rs, rj) => {
+        fs.access(file, fs.constants.F_OK, (err) => {
+            if (err) return rs(false)
+            return rs(true)
+        })
+    })
+}
+
 async function passiveUpdate(chat, record, bot) {
     let gid = chat.id
     var updation = {},
@@ -77,8 +86,9 @@ async function passiveUpdateOnGetDetail(msg, result, bot) {
 
 async function fetchChatPhoto(chat, bot) {
     async function downloadPhoto(id, loc, bot) {
-        let url = await bot.getFileLink(id)
         let location = path.join(loc, id + '.jpg')
+        if (await isFileExist(location)) return true
+        let url = await bot.getFileLink(id)
         return rp(url).pipe(fs.createWriteStream(location))
     }
     const {
@@ -142,7 +152,7 @@ async function doMigrate(msg, type, bot) {
         // _ga.tEvent(msg.chat, 'passiveUpdate', 'passiveUpdate.chatMigrate')
     } catch (e) {
         console.error(e.message)
-        await bot.sendMessage(gpindex_admin, util.inspect(e.stack))
+        await bot.sendMessage(gpindex_admin, '[passiveupdate:155]' + util.inspect(e.stack))
         _ga.tException(msg.chat.id, e, false)
     }
 }
@@ -155,7 +165,7 @@ async function notifyMigrate(msg, type, bot) {
         await bot.sendMessage(gpindex_admin, `migrating: ${msg.migrate_from_chat_id} => ${msg.chat.id}`)
     } catch (e) {
         console.error(e.message)
-        await bot.sendMessage(gpindex_admin, util.inspect(e.stack))
+        await bot.sendMessage(gpindex_admin, '[passiveupdate:168]' + util.inspect(e.stack))
         _ga.tException(msg.chat.id, e, false)
     }
 }

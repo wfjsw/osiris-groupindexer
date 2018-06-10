@@ -139,9 +139,12 @@ async function examineDisplayName(msg, new_member, bot) {
     const is_kick_halal_name = !!await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'feature:antihalalenhanced')
     let is_halal = testHalal(inviter_display_name) || testHalal(display_name) || !!(display_name + (new_member.username || '')).match(halal_display_name) || langCodeBanned.has(new_member.language_code) || langCodeBanned.has(msg.from.language_code)
     if (is_halal) {
-        await bot.sendMessage(chan_capture, `清真加群\n\n${util.inspect(msg.chat)}\n搞事的人\n${util.inspect(msg.from)}\n清真\n${util.inspect(new_member)}`, {
-            reply_markup: genHalalKB(new_member.id)
-        })
+        let is_nocapture = !!(await comlib.GroupExTag.queryGroupExTag(msg.chat.id, 'nocapture'))
+        if (!is_nocapture) {
+            await bot.sendMessage(chan_capture, `清真加群\n\n${util.inspect(msg.chat)}\n搞事的人\n${util.inspect(msg.from)}\n清真\n${util.inspect(new_member)}`, {
+                reply_markup: genHalalKB(new_member.id)
+            })
+        }
         if (is_kick_halal_name || new_member.is_bot) {
             kickByHalal(msg.chat, new_member, false, bot)
         }
@@ -472,6 +475,21 @@ async function setNotHalal(msg, result, bot) {
     }
 }
 
+async function setRejudge(msg, result, bot) {
+    if (msg.chat.id != antihalal_manager) return
+    const uid = parseInt(result[1])
+    try {
+        let ret = await comlib.UserFlag.setUserFlag(uid, ['halal', 'nothalal'], [0, 0])
+        return await bot.sendMessage(msg.chat.id, `OID: ${msg.from.id}\n${msg.text}\n\n${util.inspect(ret)}`, {
+            parse_mode: 'Markdown'
+        })
+    } catch (e) {
+        return bot.sendMessage(msg.chat.id, e.message, {
+            parse_mode: 'Markdown'
+        })
+    }
+}
+
 async function getId(msg, result, bot) {
     return bot.sendMessage(msg.chat.id, `GID: ${msg.chat.id || '¯\\_(ツ)_/¯'}\nUID: ${msg.reply_to_message ? `<a href=\"tg://user?id=${msg.reply_to_message.from.id}\">${msg.reply_to_message.from.id}</a>` : '¯\\_(ツ)_/¯'}`, {
         parse_mode: 'HTML'
@@ -518,6 +536,7 @@ module.exports = {
         [/^\/unban ([0-9-]{6,}|reply) ([0-9]{6,})$/, unbanUser],
         [/^\/halal ([0-9]{6,})$/, setHalal],
         [/^\/nothalal ([0-9]{6,})$/, setNotHalal],
+        [/^\/rejudge ([0-9]{6,})$/, setRejudge],
         [/^\/id$/, getId],
         [/^\/getmention ([0-9]{6,})$/, getUserMention],
         [/^\/halalstat ([0-9]{6,})/, halalStat]

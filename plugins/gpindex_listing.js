@@ -21,9 +21,9 @@ function purgeState(msg, result, bot) {
     });
 }
 
-function errorProcess(msg, bot, err) {
+function errorProcess(msg, bot, err, line) {
     if (err == 'notValidated') return
-    var errorlog = '```\n' + err.stack + '```\n';
+    var errorlog = '[listing:' + line + ']\n```\n' + err.message + '```\nuser:'+ msg.chat.id + ':' + msg.from.id +'\ncontent:\n' + msg.text;
     console.error(err);
     try {
         bot.sendMessage(msg.chat.id, langres['infoBugReport'], {
@@ -201,7 +201,7 @@ async function getList(msg, result, bot) {
                 } catch (e) {}
             }
         } catch (e) {
-            errorProcess(msg, bot, e)
+            errorProcess(msg, bot, e, 204)
         }
     }
 }
@@ -243,7 +243,7 @@ async function sendFirstPageListByCategory(msg, bot) {
             } catch (e) {}
         }
     } catch (e) {
-        errorProcess(msg, bot, e)
+        errorProcess(msg, bot, e, 246)
     }
 }
 
@@ -312,7 +312,7 @@ async function pagination_editListByCategory(msg, bot, operator, query) {
         }
     } catch (e) {
         if (!e.message.match('message is not modified') && !e.message.match('QUERY_ID_INVALID'))
-            errorProcess(msg.message, bot, e)
+            errorProcess(msg.message, bot, e, 315)
     }
 }
 
@@ -363,7 +363,7 @@ async function doSearch(msg, result, bot) {
                 _ga.tEvent(msg.from, 'blocked', 'blockedUserAttempt.listing.doSearch')
             }
         } catch (e) {
-            errorProcess(msg, bot, e)
+            errorProcess(msg, bot, e, 366)
         }
     }
 }
@@ -465,7 +465,7 @@ async function getDetail(msg, result, bot) {
             } catch (e) {}
         }
     } catch (e) {
-        errorProcess(msg, bot, e)
+        errorProcess(msg, bot, e, 468)
     }
 }
 
@@ -514,7 +514,7 @@ async function getMyGroups(msg, result, bot) {
                 reply_to_mesaage_id: msg.message_id
             })
         } catch (e) {
-            errorProcess(msg, bot, e)
+            errorProcess(msg, bot, e, 517)
         }
     }
 }

@@ -3,7 +3,7 @@
     "promptGroupChosen": "请点击下方按钮继续操作。",
     "promptSendLink": "请发送您的邀请链接。",
     "promptRemoveConfirm": "请重复发一次 /remove 指令以确认删除操作。发送 /cancel 以撤销。",
-    "promptSendTag": "请选择一个分类用于索引。可用的分类：\n%s",
+    "promptSendTag": "请为您的群组或频道选择一个分类。",
     "promptSendDesc": "请输入一段简介文字（须大于 10 字）：",
     "promptCurrentDesc": "您群组当前设置的简介是：",
     "buttonGroupChosenContinue": "继续",

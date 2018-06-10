@@ -105,7 +105,7 @@ async function processCallbackButton(msg, type, bot) {
             });
         } catch (e) {
             _ga.tException(msg.from.id, e, false)
-            await _e.bot.sendMessage(ADMIN_GROUP, '```' + util.inspect(e.stack) + '```', {
+            await _e.bot.sendMessage(ADMIN_GROUP, '[reportinvalid:108]\n```' + util.inspect(e.stack) + '```', {
                 parse_mode: 'Markdown'
             })
             return _e.bot.answerCallbackQuery({
