@@ -22,7 +22,7 @@
   "dependencies": {
     "base64-url": "^2.0.1",
     "he": "^1.1.1",
-    "jsdom": "^11.5.1",
+    "jsdom": "^16.5.0",
     "moment": "^2.20.1",
     "request": "^2.83.0",
     "request-promise-native": "^1.0.5",
