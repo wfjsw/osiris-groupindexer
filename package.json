@@ -24,7 +24,7 @@
     "he": "^1.1.1",
     "jsdom": "^11.5.1",
     "moment": "^2.20.1",
-    "request": "^2.83.0",
+    "request": "^2.88.2",
     "request-promise-native": "^1.0.5",
     "rethinkdb": "^2.3.3",
     "segment": "^0.1.3",
